@@ -460,6 +460,10 @@ class Attestation(Base):
     subject_type: Mapped[str] = mapped_column(String(32), nullable=False)
     subject_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     subject_version_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Which definition of the subject's "content" that hash was taken over.
+    # NULL is a signature predating the column, and it is not comparable with a
+    # current digest — see `conformity.HASH_PAYLOAD_VERSION`.
+    hash_payload_version: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     signer_user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     signer_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

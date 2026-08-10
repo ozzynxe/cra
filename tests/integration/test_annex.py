@@ -19,6 +19,8 @@ pytestmark = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"), reason="needs DATABASE_URL"
 )
 
+from sqlalchemy import select  # noqa: E402
+
 from cra.agents import dispatch as dispatcher  # noqa: E402
 from cra.db import Attestation, AuditEvent, Evidence, User, session_scope  # noqa: E402
 from cra.regulation import (  # noqa: E402
@@ -871,3 +873,122 @@ def test_the_freeze_says_it_out_loud(scoped, owner):
     said = out.get("review_before_this_is_relied_on", "")
     assert "annex_i.i.2.g" in said, out
     assert "your call" in said, "it must not read as a refusal"
+
+
+# ---- what the signature actually spans ----------------------------------------
+#
+# A signature binds to a content hash, so the hash decides what "the document"
+# means. Until 2026-08-10 it covered the file's *shape* — which slots were
+# complete, how many requirements were settled — and not what any requirement
+# said. An end-to-end run signed a file, then rewrote an implementation note
+# from a claim that hardening flags were applied to a statement that they were
+# only partly applied. The hash did not move, `stale_signatures` stayed empty,
+# and the agent reported the sign-off intact.
+
+
+def test_rewriting_an_implementation_note_after_signature_is_visible(scoped, owner):
+    """The exact sequence from the run that found this.
+
+    Annex VII(3) asks the file to record how each applicable requirement is
+    implemented, so the note *is* content — and it is the part a reader is most
+    likely to revise quietly.
+    """
+    _signable(scoped, owner)
+    _call("sign_off", scoped, owner, signer_name="A. Manager",
+          signer_role="CTO", statement="I attest.")
+    before = _call("assemble_technical_file", scoped, owner)["content_hash"]
+    assert _call("get_conformity_status", scoped, owner)["stale_signatures"] == []
+
+    _call("update_requirement", scoped, owner, req_id=REQ,
+          implementation_note="Amended after signature: hardening flags were "
+                              "only partially applied in the 1.0.0 build.")
+
+    after = _call("assemble_technical_file", scoped, owner)["content_hash"]
+    assert after != before, "rewriting the implementation note did not move the hash"
+
+
+def test_rewriting_a_justification_after_signature_is_visible(scoped, owner):
+    """The other half of it. Ruling a requirement out is a claim the file makes,
+    and the reason is the whole of that claim."""
+    _signable(scoped, owner)
+    other = "annex_i.i.2.l"
+    _call("update_requirement", scoped, owner, req_id=other,
+          applicability="not_applicable",
+          justification="No network interface in this product at all.")
+    _call("assemble_technical_file", scoped, owner, finalize=True)
+    before = _call("assemble_technical_file", scoped, owner)["content_hash"]
+
+    _call("update_requirement", scoped, owner, req_id=other,
+          applicability="not_applicable",
+          justification="Reviewed again; the interface is present but disabled "
+                        "by default.")
+    after = _call("assemble_technical_file", scoped, owner)["content_hash"]
+    assert after != before, "rewriting the justification did not move the hash"
+
+
+def test_an_unchanged_file_still_hashes_the_same(scoped, owner):
+    """The other direction, and it is why the timestamp is not in the payload:
+    a hash that moved on every read would make staleness noise rather than a
+    signal, and nobody would look at it."""
+    _signable(scoped, owner)
+    a = _call("assemble_technical_file", scoped, owner)["content_hash"]
+    b = _call("assemble_technical_file", scoped, owner)["content_hash"]
+    assert a == b
+
+
+def test_emptying_a_note_is_not_the_same_as_never_writing_one(scoped, owner):
+    """Every narrative field is rendered even when blank. A payload that omitted
+    empty values would hash identically whether a note was cleared or never
+    existed, which is the one edit most worth catching."""
+    _signable(scoped, owner)
+    _call("update_requirement", scoped, owner, req_id=REQ,
+          implementation_note="Hardening flags applied to the 1.0.0 build.")
+    written = _call("assemble_technical_file", scoped, owner)["content_hash"]
+
+    _call("update_requirement", scoped, owner, req_id=REQ, implementation_note="")
+    cleared = _call("assemble_technical_file", scoped, owner)["content_hash"]
+    assert cleared != written
+
+
+def test_a_signature_from_before_the_widening_is_not_called_stale(scoped, owner):
+    """A change in how the hash is computed must not be reported as a change to
+    the document.
+
+    Widening the payload moved every digest. An older signature compares unequal
+    and would have landed in `stale_signatures`, asserting an edit nobody made —
+    the inverse of this codebase's rule that an absence of knowledge must not
+    read as knowledge of absence.
+    """
+    _signable(scoped, owner)
+    _call("sign_off", scoped, owner, signer_name="A. Manager",
+          signer_role="CTO", statement="I attest.")
+
+    # Exactly what a row signed before migration 0013 looks like.
+    with session_scope() as s:
+        row = s.execute(
+            select(Attestation).where(Attestation.product_id == scoped)
+        ).scalars().first()
+        row.hash_payload_version = None
+        row.subject_version_hash = "0" * 64
+
+    status = _call("get_conformity_status", scoped, owner)
+    att = status["attestations"][0]
+    assert att["coverage"] == "incomparable"
+    assert att["covers_current_version"] is False      # cannot be shown to cover
+    assert status["stale_signatures"] == []            # but not evidence of an edit
+    assert len(status["unverifiable_signatures"]) == 1
+    assert "does not mean the document changed" in att["detail"]
+
+
+def test_a_document_that_really_changed_is_still_called_superseded(scoped, owner):
+    """The distinction only earns its place if the ordinary case still works."""
+    _signable(scoped, owner)
+    _call("sign_off", scoped, owner, signer_name="A. Manager",
+          signer_role="CTO", statement="I attest.")
+    _attach(scoped, owner, "technical_file:tf.6", title="second test round")
+    _call("assemble_technical_file", scoped, owner, finalize=True)
+
+    status = _call("get_conformity_status", scoped, owner)
+    assert status["attestations"][0]["coverage"] == "superseded"
+    assert len(status["stale_signatures"]) == 1
+    assert status["unverifiable_signatures"] == []

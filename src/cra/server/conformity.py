@@ -15,6 +15,15 @@ file and stores it hashed, because Annex VII is retained ten years and
 gets asked. A signature binds to that hash, so a file edited afterwards no
 longer matches its attestation and says so.
 
+What that hash spans is the load-bearing part. Until 2026-08-10 it covered the
+*shape* of the file — which slots were complete, how many requirements were
+settled — and not what any requirement said. So an implementation note could be
+rewritten after signature, from a claim that hardening was applied to a
+statement that it was only partly applied, and nothing moved. `_narrative` is
+now in the payload, and `HASH_PAYLOAD_VERSION` records which definition a given
+signature was taken under so that widening it again is distinguishable from the
+document having changed.
+
 **A declaration is refused, not warned about, when a mandatory field is blank.**
 `assemble_technical_file(finalize=True)` has always refused an incomplete file
 because freezing one "produces a document that looks finished". The declaration
@@ -165,6 +174,65 @@ def thin_justifications(state) -> list[dict]:
     return out
 
 
+def _coverage(attestation, current_hash: Optional[str]) -> dict:
+    """Whether a signature still covers what the document now says.
+
+    Three answers, and the third is the one that had to be added. A signature
+    binds to a digest, and on 2026-08-10 the payload that digest is taken over
+    widened to include what each requirement actually says. Every hash moved.
+
+    Comparing a signature taken under the old definition against a digest
+    computed under the new one produces `False`, which reads as "the file
+    changed after you signed it". Nothing changed — the measurement did. That is
+    the inverse of the rule this codebase runs on: as an absence of knowledge
+    must not read as knowledge of absence, a change in how we measure must not
+    read as a change in what was measured.
+
+      current       the hashes match; the signature covers what the file says now
+      superseded    both under the same definition, and they differ: it changed
+      incomparable  signed under an earlier definition, so this cannot be
+                    determined here
+
+    `covers_current_version` stays a boolean and stays false for `incomparable`,
+    because we cannot show that it covers — which is a different claim from
+    showing that it does not, and the `detail` says which.
+
+    An incomparable signature is not evidence of tampering and must never be
+    reported as such. The frozen body it was taken over is kept in `evidence`
+    and copied to the statutory archive, so verifying one is a question for that
+    artefact rather than for this table — which is also why no version-1 payload
+    builder is kept alive here.
+    """
+    bound = attestation.subject_version_hash
+    version = getattr(attestation, "hash_payload_version", None)
+
+    if version is not None and version == HASH_PAYLOAD_VERSION:
+        matches = bool(current_hash) and bound == current_hash
+        return {
+            "covers_current_version": matches,
+            "coverage": "current" if matches else "superseded",
+            "detail": (
+                "The signature is bound to the document as it now stands."
+                if matches
+                else "The document changed after this was signed, so a fresh "
+                "sign-off is required. That is what the hash is for."
+            ),
+        }
+
+    return {
+        "covers_current_version": False,
+        "coverage": "incomparable",
+        "detail": (
+            "Signed when the content hash was computed over less of the file "
+            "than it is now — the requirement and Annex II narrative was added "
+            "to it on 2026-08-10. This does not mean the document changed, and "
+            "it is not a sign of tampering; it means coverage cannot be "
+            "determined from the hash alone. Re-sign to bind to the current "
+            "definition, or verify against the frozen body kept in evidence."
+        ),
+    }
+
+
 def _evidence_by_subject(db, product_id: str) -> dict[str, list[Evidence]]:
     out: dict[str, list[Evidence]] = {}
     rows = db.execute(
@@ -175,6 +243,59 @@ def _evidence_by_subject(db, product_id: str) -> dict[str, list[Evidence]]:
     for e in rows:
         out.setdefault(e.subject_ref, []).append(e)
     return out
+
+
+# The payload the technical-file hash is taken over. Bumped when what counts as
+# the file's *content* changes, so a signature taken under an earlier definition
+# can be recognised rather than silently compared against a new one.
+HASH_PAYLOAD_VERSION = 2
+
+
+def _narrative(state) -> dict:
+    """What the file asserts about each requirement and Annex II item.
+
+    Hashed, and this is the whole point of the function. Until 2026-08-10 the
+    payload carried only *counts* — total, settled, gaps — so the digest moved
+    when a requirement changed category and not when it changed meaning. An
+    end-to-end run signed a file, rewrote an `implementation_note` from a claim
+    that hardening flags were applied to a statement that they were only partly
+    applied, and the hash did not move: `stale_signatures` stayed empty and the
+    signature still reported as covering the current version.
+
+    Annex VII(3) asks the file to record how each applicable requirement is
+    implemented, and `implementation_note` is where that lives. So it is content,
+    and so is the `justification` that rules a requirement out — the two fields a
+    reader is most likely to revise quietly were the two the signature did not
+    span.
+
+    Sorted by id, and every field rendered even when empty: a dict that omits
+    blank values hashes the same whether a note was never written or was emptied.
+    """
+    return {
+        "requirements": [
+            {
+                "req_id": i.req_id,
+                "applicability": str(i.applicability),
+                "status": str(i.status),
+                "justification": i.justification or "",
+                "implementation_note": i.implementation_note or "",
+                "risk_basis": sorted(i.risk_basis or []),
+                "evidence_ids": sorted(i.evidence_ids or []),
+            }
+            for i in sorted(state.requirements, key=lambda x: x.req_id)
+        ],
+        "user_information": [
+            {
+                "item_id": i.item_id,
+                "provided": bool(i.provided),
+                "not_applicable": bool(i.not_applicable),
+                "justification": i.justification or "",
+                "location": i.location or "",
+                "note": i.note or "",
+            }
+            for i in sorted(state.user_information, key=lambda x: x.item_id)
+        ],
+    }
 
 
 def _slot_view(
@@ -429,6 +550,10 @@ def assemble_technical_file(
     #
     # The timestamp is still returned, right next to the hash — see `result`.
     payload = {
+        # Which definition of "content" this digest was taken over. Without it,
+        # widening the payload later is indistinguishable from the file having
+        # changed, and every existing signature reads as superseded on deploy.
+        "payload_version": HASH_PAYLOAD_VERSION,
         "product_id": product_id,
         "product_name": state.name,
         "product_class": state.classification.product_class,
@@ -439,6 +564,9 @@ def assemble_technical_file(
         "release": release.version if release else None,
         "released_at": release.released_at.isoformat() if release else None,
         "slots": slots,
+        # What each requirement and Annex II item actually says, not just how
+        # many of them are settled. See `_narrative`.
+        "narrative": _narrative(state),
     }
     body = json.dumps(payload, indent=2, sort_keys=True)
     digest = hashlib.sha256(body.encode()).hexdigest()
@@ -1095,6 +1223,11 @@ def sign_off(
             if subject == "technical_file"
             else state.conformity_declaration_evidence_id,
             subject_version_hash=version_hash,
+            # The declaration's hash is taken over its own rendered body rather
+            # than the technical-file payload, so it is unversioned by this
+            # scheme; recording the version anyway keeps every row comparable on
+            # the same terms and costs nothing.
+            hash_payload_version=HASH_PAYLOAD_VERSION,
             signer_user_id=actor_id or "unknown",
             signer_name=signer_name.strip(),
             signer_role=signer_role.strip(),
@@ -1184,13 +1317,11 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
                 "signer_role": a.signer_role,
                 "signed_at": a.signed_at.isoformat(),
                 "bound_to_hash": a.subject_version_hash,
-                # The check that matters: a signature on a superseded version
-                # is not a signature on the current one.
-                "covers_current_version": a.subject_version_hash
-                == (
+                **_coverage(
+                    a,
                     state.technical_file_hash
                     if a.subject_type == "technical_file"
-                    else state.conformity_declaration_hash
+                    else state.conformity_declaration_hash,
                 ),
             }
             for a in rows
@@ -1279,8 +1410,15 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
             "missing_fields": list(state.conformity_declaration_missing),
         },
         "attestations": attestations,
+        # Kept meaning what the word says: the document moved after it was
+        # signed. A signature that merely predates a change in how the hash is
+        # computed is listed separately — calling it stale would assert an edit
+        # nobody made.
         "stale_signatures": [
-            a for a in attestations if not a["covers_current_version"]
+            a for a in attestations if a["coverage"] == "superseded"
+        ],
+        "unverifiable_signatures": [
+            a for a in attestations if a["coverage"] == "incomparable"
         ],
         "qualifications": qualifications,
         "disclaimer": _DISCLAIMER,

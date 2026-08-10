@@ -280,6 +280,11 @@ def _full_declaration(product, owner):
         product,
         owner,
         standards_applied="EN 18031-1:2024",
+        conformity_route="self_assessment",
+        conformity_route_basis=(
+            "Default class under Article 32; internal control per Annex VIII "
+            "Module A."
+        ),
     )
     assert out["ok"] is True, out
     return out

@@ -65,6 +65,7 @@ from cra.regulation import (
     technical_file_slots,
 )
 from cra.regulation import product_class as class_spec
+from cra.schemas import ConformityClaim
 from cra.schemas.enums import Applicability, EvidenceKind, RequirementStatus, Role
 from cra.server import audit, entitlements, risk, statutory_export, store_backend
 from cra.server.annex import _find, _is_gap, evidence_currency, latest_release
@@ -557,7 +558,14 @@ def assemble_technical_file(
         "product_id": product_id,
         "product_name": state.name,
         "product_class": state.classification.product_class,
+        # What the class permits, and separately what was claimed. An auditor
+        # reading Annex VII should not have to infer the second from the first.
         "conformity_route": state.classification.conformity_route,
+        "conformity_claimed": {
+            "route": state.conformity_claim.route,
+            "basis": state.conformity_claim.basis,
+            "standards_applied_in_full": state.conformity_claim.standards_applied_in_full,
+        },
         # Which release this file describes. Annex I attaches to the product as
         # placed on the market, so a technical file that does not say which
         # version it documents is ambiguous about the only thing that matters.
@@ -747,6 +755,63 @@ def assemble_technical_file(
 # ---- Declaration of Conformity ----------------------------------------------
 
 
+# Which routes a caller may claim, and what each means.
+_ROUTES = {
+    "self_assessment": "internal control (Module A) — no notified body involved",
+    "notified_body": "a notified-body procedure",
+}
+
+
+def _check_route(spec, route: Optional[str], basis: str, in_full: Optional[bool]):
+    """Refuse a declaration that asserts a route the class does not open.
+
+    The route used to be inferred from the class and never claimed. For Annex
+    III class I that inference is not available to make: internal control is
+    permitted there *only* where harmonised standards, common specifications or
+    a certification scheme are applied in full, and whether that happened is a
+    fact about the manufacturer's work rather than about the classification.
+
+    So it is asserted, not parsed. `standards_applied` is prose and deciding
+    from it would mean reading a sentence — being wrong in the permissive
+    direction issues a declaration claiming a route the record denies, which is
+    what happened.
+    """
+    if route not in _ROUTES:
+        raise InvalidState(
+            "conformity_route is required and must be one of "
+            f"{sorted(_ROUTES)}. It is what the declaration asserts, and it is a "
+            "claim you are making rather than something this tool can infer: the "
+            "classification says which routes your class permits, not which one "
+            "you took."
+        )
+    if not basis.strip():
+        raise InvalidState(
+            "conformity_route_basis is required: say what makes that route "
+            "available to this product. Article 13(8) needs the support period "
+            "and the information taken into account; a route with no stated "
+            "basis is the same gap."
+        )
+    if spec.notified_body_required and route != "notified_body":
+        raise InvalidState(
+            f"this product is {spec.id}, where a notified-body procedure is "
+            "mandatory, so a declaration cannot assert self-assessment. If the "
+            "classification is wrong, correct it with classify_product() — do "
+            "not route around it here."
+        )
+    if spec.conformity_route == "self_assessment_with_standards" and route == "self_assessment":
+        if in_full is not True:
+            raise InvalidState(
+                f"{spec.id} permits internal control **only** where harmonised "
+                "standards, common specifications or a European cybersecurity "
+                "certification scheme are applied in full. Applying one in part "
+                "does not open that route. If they are applied in full, say so "
+                "with standards_applied_in_full=true and name them in "
+                "conformity_route_basis; if they are not, this product needs a "
+                "notified body and the declaration cannot be issued on internal "
+                "control."
+            )
+
+
 def generate_declaration_of_conformity(
     *,
     product_id: str,
@@ -754,6 +819,9 @@ def generate_declaration_of_conformity(
     product_identification: Optional[str] = None,
     standards_applied: Optional[str] = None,
     notified_body: Optional[str] = None,
+    conformity_route: Optional[str] = None,
+    conformity_route_basis: str = "",
+    standards_applied_in_full: Optional[bool] = None,
 ) -> dict:
     """Draft the Annex V declaration. A draft — a human signs it."""
     state = _load(product_id)
@@ -779,6 +847,7 @@ def generate_declaration_of_conformity(
         )
 
     spec = class_spec(_ENUM_TO_CLASS.get(state.classification.product_class, "default"))
+    _check_route(spec, conformity_route, conformity_route_basis, standards_applied_in_full)
     if spec.notified_body_required and not notified_body:
         raise InvalidState(
             f"this product is {spec.id}, so Annex V(7) requires the notified "
@@ -832,10 +901,26 @@ def generate_declaration_of_conformity(
         if not values.get(f.id)
     ]
 
+    route_line = (
+        f"{_ROUTES[conformity_route]}. Basis: {conformity_route_basis.strip()}"
+        + (
+            " Harmonised standards, common specifications or a certification "
+            "scheme are asserted to be applied in full."
+            if standards_applied_in_full
+            else ""
+        )
+    )
+
     lines = [
         "# EU Declaration of Conformity",
         "",
         "_Draft. Not signed, and not a conformity assessment._",
+        "",
+        # In the document, not only in the tool's reply. The declaration is what
+        # CE marking rests on, and an auditor reading it should find the route
+        # relied on rather than infer it from which fields are filled.
+        "**Conformity assessment route relied on**",
+        route_line,
         "",
     ]
     for f in doc_fields():
@@ -848,6 +933,9 @@ def generate_declaration_of_conformity(
     body = json.dumps(
         {
             "fields": values,
+            "conformity_route": conformity_route,
+            "conformity_route_basis": conformity_route_basis.strip(),
+            "standards_applied_in_full": standards_applied_in_full,
             "technical_file_hash": state.technical_file_hash,
             "drafted_at": _now().isoformat(),
         },
@@ -894,6 +982,13 @@ def generate_declaration_of_conformity(
             after_hash=digest,
         )
 
+        state.conformity_claim = ConformityClaim(
+            route=conformity_route,
+            basis=conformity_route_basis.strip(),
+            standards_applied_in_full=standards_applied_in_full,
+            claimed_at=_now(),
+            claimed_by=actor_id or None,
+        )
         state.conformity_declaration_hash = digest
         state.conformity_declaration_evidence_id = evidence_id
         state.conformity_declaration_missing = [m["field"] for m in missing]
@@ -1412,6 +1507,11 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
         "in_scope": state.classification.in_scope,
         "product_class": state.classification.product_class,
         "conformity_route": state.classification.conformity_route,
+        "conformity_claimed": {
+            "route": state.conformity_claim.route,
+            "basis": state.conformity_claim.basis,
+            "standards_applied_in_full": state.conformity_claim.standards_applied_in_full,
+        },
         "requirements": {
             "total": len(state.requirements),
             "settled": settled,

@@ -362,6 +362,39 @@ class SubmitterProfile(_Base):
     disclosure_policy_url: Optional[str] = None
 
 
+class ConformityClaim(_Base):
+    """Which assessment route the manufacturer says they relied on, and why.
+
+    **A claim, not a derivation.** `classification.conformity_route` is what the
+    catalogue says the product's class permits; this is what the manufacturer
+    asserts they actually did. The two are different things and the declaration
+    rests on the second.
+
+    They were conflated until 2026-08-10, and an end-to-end run showed what that
+    costs. The product was Annex III class I, where self-assessment is available
+    *only* where harmonised standards, common specifications or a certification
+    scheme are applied in full. The technical file recorded, in its own words,
+    "ETSI EN 303 645 in part; no harmonised standard applied in full" — and the
+    declaration was then issued asserting conformity with Annex V(7), the
+    notified body, absent. A signed claim of conformity by a route the record
+    says was not open.
+
+    Deciding that from `standards_applied` would mean parsing a sentence, and
+    being wrong in the permissive direction manufactures exactly the assurance
+    this service exists to withhold. So the condition is asserted explicitly and
+    the reasoning is recorded beside it — the same shape as Article 13(8), where
+    the support period needs the date *and* the information taken into account.
+    """
+
+    route: Optional[str] = None
+    basis: str = ""
+    # Annex III class I only. `True` asserts the condition that makes internal
+    # control available; anything else leaves the conditional route unclaimed.
+    standards_applied_in_full: Optional[bool] = None
+    claimed_at: Optional[datetime] = None
+    claimed_by: Optional[str] = None
+
+
 class ComplianceState(_Base):
     product_id: str
     name: str
@@ -406,6 +439,9 @@ class ComplianceState(_Base):
     # a declaration signed with the manufacturer's name missing, and nothing in
     # the sign-off response said so.
     conformity_declaration_missing: list[str] = Field(default_factory=list)
+    # What the manufacturer says they relied on, distinct from what the
+    # class permits. See `ConformityClaim`.
+    conformity_claim: ConformityClaim = Field(default_factory=ConformityClaim)
     conformity_declaration_evidence_id: Optional[str] = None
     # Article 13(20): where the *full* declaration is published, so the
     # simplified form can name it. Kept on the record rather than only in the

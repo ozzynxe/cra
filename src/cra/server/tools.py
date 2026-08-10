@@ -1190,10 +1190,13 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
 
     @mcp.tool(annotations=_annot("Draft Declaration of Conformity", _WRITE_LEGAL))
     def generate_declaration_of_conformity(
+        conformity_route: str,
+        conformity_route_basis: str,
         product_id: Optional[str] = None,
         product_identification: Optional[str] = None,
         standards_applied: Optional[str] = None,
         notified_body: Optional[str] = None,
+        standards_applied_in_full: Optional[bool] = None,
     ) -> dict:
         """Draft the Annex V EU Declaration of Conformity.
 
@@ -1206,6 +1209,22 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         notified body, `notified_body` is required: Annex V(7) wants its name
         and number, the procedure performed and the certificate.
 
+        **`conformity_route` is a claim the manufacturer makes, not something
+        this tool infers.** Classification says which routes a class permits;
+        only they know which one was taken. `self_assessment` is internal
+        control under Module A; `notified_body` is a notified-body procedure.
+        `conformity_route_basis` says what makes that route available, in the
+        same way the Article 13(8) support period needs its reasoning.
+
+        For Annex III class I, internal control is available **only** where
+        harmonised standards, common specifications or a European cybersecurity
+        certification scheme are applied *in full*. Applying one in part does not
+        open it. Ask the user directly rather than reading it off whatever they
+        wrote in `standards_applied`, and pass
+        `standards_applied_in_full=true` only if they say so — the declaration is
+        what CE marking rests on, and claiming a route that was not available is
+        a false statement with legal weight.
+
         Not applicable to open-source stewards, who do not issue a declaration.
         """
         return dispatcher.dispatch(
@@ -1216,6 +1235,9 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
                 "product_identification": product_identification,
                 "standards_applied": standards_applied,
                 "notified_body": notified_body,
+                "conformity_route": conformity_route,
+                "conformity_route_basis": conformity_route_basis,
+                "standards_applied_in_full": standards_applied_in_full,
             },
         )
 

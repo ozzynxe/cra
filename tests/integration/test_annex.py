@@ -446,7 +446,7 @@ def test_an_optional_slot_does_not_block_finalizing(scoped, owner):
 
 
 def test_a_declaration_needs_a_frozen_file_behind_it(scoped, owner):
-    r = _call("generate_declaration_of_conformity", scoped, owner)
+    r = _declare(scoped, owner)
     assert r["ok"] is False
     assert "no finalized technical file" in r["error"]
 
@@ -457,7 +457,7 @@ def test_a_steward_does_not_issue_a_declaration(product, owner):
     state = store_pg.load_state(product)
     state.economic_operator_role = "open_source_steward"
     store_pg.save_state(state)
-    r = _call("generate_declaration_of_conformity", product, owner)
+    r = _declare(product, owner)
     assert r["ok"] is False and "open-source steward" in r["error"]
 
 
@@ -473,16 +473,25 @@ def test_a_notified_body_product_cannot_declare_without_one(product, owner):
     _fill_file(product, owner)
     _call("assemble_technical_file", product, owner, finalize=True)
 
-    r = _call("generate_declaration_of_conformity", product, owner)
+    # Claiming internal control on a class II product is refused before
+    # anything else: the route is mandatory there, and routing around the
+    # classification in the declaration is not an option the tool offers.
+    wrong_route = _declare(product, owner)
+    assert wrong_route["ok"] is False
+    assert "notified-body procedure is mandatory" in wrong_route["error"]
+
+    nb = dict(
+        conformity_route="notified_body",
+        conformity_route_basis="Module B type-examination by NB 1234.",
+    )
+    r = _declare(product, owner, **nb)
     assert r["ok"] is False
     assert "Annex V(7)" in r["error"]
 
-    ok = _call(
-        "generate_declaration_of_conformity",
-        product,
-        owner,
+    ok = _declare(product, owner,
         notified_body="NB 1234, Module B certificate 5678",
         standards_applied="EN 18031-1",
+        **nb,
     )
     assert ok["ok"] is True
 
@@ -491,7 +500,7 @@ def test_the_draft_names_its_missing_fields_rather_than_inventing_them(scoped, o
     _fill_file(scoped, owner)
     _call("assemble_technical_file", scoped, owner, finalize=True)
 
-    r = _call("generate_declaration_of_conformity", scoped, owner)
+    r = _declare(scoped, owner)
     assert r["ok"] is True and r["draft"] is True
     missing = {m["field"] for m in r["missing_fields"]}
     assert "doc.2" in missing  # manufacturer legal name not recorded
@@ -503,10 +512,7 @@ def test_the_declaration_binds_to_the_file_it_rests_on(scoped, owner):
     _fill_file(scoped, owner)
     tf = _call("assemble_technical_file", scoped, owner, finalize=True)
     _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy")
-    doc = _call(
-        "generate_declaration_of_conformity",
-        scoped,
-        owner,
+    doc = _declare(scoped, owner,
         standards_applied="EN 18031-1 applied in full",
     )
     assert doc["technical_file_hash"] == tf["content_hash"]
@@ -514,6 +520,20 @@ def test_the_declaration_binds_to_the_file_it_rests_on(scoped, owner):
 
 
 # ---- sign-off ----------------------------------------------------------------
+
+
+def _declare(product, owner, **kw):
+    """Draft a declaration with a route claimed, since one is now required.
+
+    Default is internal control on the default class, which is the ordinary
+    case. Tests about a conditional or notified-body route pass their own.
+    """
+    kw.setdefault("conformity_route", "self_assessment")
+    kw.setdefault(
+        "conformity_route_basis",
+        "Default class under Article 32; internal control per Annex VIII Module A.",
+    )
+    return _call("generate_declaration_of_conformity", product, owner, **kw)
 
 
 def _signable(product, owner):
@@ -699,10 +719,7 @@ def test_the_full_chain_runs_freeze_declare_refreeze_sign(scoped, owner):
     first = _call("assemble_technical_file", scoped, owner, finalize=True)
     assert first["finalized"] is True
 
-    doc = _call(
-        "generate_declaration_of_conformity",
-        scoped,
-        owner,
+    doc = _declare(scoped, owner,
         standards_applied="EN 18031-1 applied in full",
     )
     assert doc["ok"] is True
@@ -742,7 +759,7 @@ def test_the_declaration_lists_every_field_the_document_renders_as_missing(scope
     _fill_file(scoped, owner)
     _call("assemble_technical_file", scoped, owner, finalize=True)
 
-    doc = _call("generate_declaration_of_conformity", scoped, owner,
+    doc = _declare(scoped, owner,
                 standards_applied="EN 18031-1 applied in full")
     rendered_missing = doc["markdown"].count("⚠️ MISSING")
     assert rendered_missing == len(doc["missing_fields"]), (
@@ -758,7 +775,7 @@ def test_a_declaration_with_a_blank_mandatory_field_cannot_be_signed(scoped, own
     _fill_file(scoped, owner)
     _call("assemble_technical_file", scoped, owner, finalize=True)
 
-    doc = _call("generate_declaration_of_conformity", scoped, owner,
+    doc = _declare(scoped, owner,
                 standards_applied="EN 18031-1 applied in full")
     assert doc["missing_fields"], "expected the manufacturer's details to be missing"
 
@@ -776,7 +793,7 @@ def test_filling_the_field_lets_the_declaration_be_signed(scoped, owner):
     _fill_file(scoped, owner)
     _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy")
     _call("assemble_technical_file", scoped, owner, finalize=True)
-    doc = _call("generate_declaration_of_conformity", scoped, owner,
+    doc = _declare(scoped, owner,
                 standards_applied="EN 18031-1 applied in full")
     assert doc["missing_fields"] == []
 
@@ -795,7 +812,7 @@ def test_the_status_read_qualifies_a_wall_of_green(scoped, owner):
     """
     _fill_file(scoped, owner)
     _call("assemble_technical_file", scoped, owner, finalize=True)
-    _call("generate_declaration_of_conformity", scoped, owner,
+    _declare(scoped, owner,
           standards_applied="EN 18031-1 applied in full")
 
     out = _call("get_conformity_status", scoped, owner)
@@ -816,7 +833,7 @@ def test_a_clean_product_carries_no_qualifications(scoped, owner):
     _fill_file(scoped, owner)
     _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy")
     _call("assemble_technical_file", scoped, owner, finalize=True)
-    _call("generate_declaration_of_conformity", scoped, owner,
+    _declare(scoped, owner,
           standards_applied="EN 18031-1 applied in full")
 
     out = _call("get_conformity_status", scoped, owner)
@@ -1079,3 +1096,84 @@ def test_the_status_read_says_what_it_is_counting(scoped, owner):
     req = _call("get_conformity_status", scoped, owner)["requirements"]
     assert {"total", "settled", "gaps", "applicable", "counting"} <= set(req)
     assert "never made applicable" in req["counting"]
+
+
+# ---- the route is claimed, not inferred ----------------------------------------
+
+
+def _class_i(product, owner):
+    _call("classify_product", product, owner, product_class="important_class_i",
+          in_scope=True, rationale="Password manager.")
+    _fill_file(product, owner)
+    _call("assemble_technical_file", product, owner, finalize=True)
+
+
+def test_class_i_cannot_self_assess_on_standards_applied_in_part(product, owner):
+    """The finding, exactly. Annex III class I permits internal control only
+    where harmonised standards, common specifications or a certification scheme
+    are applied *in full*.
+
+    An end-to-end run recorded "ETSI EN 303 645 in part; no harmonised standard
+    applied in full" in the technical file, then issued and signed a declaration
+    asserting conformity with Annex V(7) absent — a route the record said was
+    not open.
+    """
+    _class_i(product, owner)
+    out = _declare(product, owner, standards_applied="ETSI EN 303 645 in part")
+    assert out["ok"] is False
+    assert "applied in full" in out["error"]
+
+
+def test_class_i_may_self_assess_when_the_condition_is_asserted(product, owner):
+    """Asserted, not parsed. Reading it off `standards_applied` would mean
+    deciding from a sentence, and being wrong in the permissive direction issues
+    the declaration this refuses."""
+    _class_i(product, owner)
+    out = _declare(
+        product, owner,
+        standards_applied="EN 18031-1:2024",
+        standards_applied_in_full=True,
+        conformity_route_basis="EN 18031-1:2024 applied in full across the product.",
+    )
+    assert out["ok"] is True, out
+
+
+def test_a_route_with_no_basis_is_refused(product, owner):
+    """Same shape as Article 13(8): the support period needs the date and the
+    information taken into account. A route with no stated basis is that gap."""
+    _class_i(product, owner)
+    out = _declare(product, owner, conformity_route_basis="   ",
+                   standards_applied_in_full=True)
+    assert out["ok"] is False
+    assert "conformity_route_basis is required" in out["error"]
+
+
+def test_an_unknown_route_is_refused_rather_than_guessed(scoped, owner):
+    _signable(scoped, owner)
+    out = _declare(scoped, owner, conformity_route="module_h")
+    assert out["ok"] is False
+    assert "conformity_route is required" in out["error"]
+
+
+def test_the_declaration_states_the_route_it_relied_on(scoped, owner):
+    """In the document, not only the tool's reply — an auditor reading the
+    declaration should find the route rather than infer it from which fields
+    happen to be filled."""
+    _signable(scoped, owner)
+    out = _declare(scoped, owner, standards_applied="EN 18031-1:2024")
+    doc = out["markdown"]
+    assert "Conformity assessment route relied on" in doc
+    assert "internal control (Module A)" in doc
+    assert "Annex VIII Module A" in doc
+
+
+def test_the_technical_file_carries_the_claim_separately_from_the_class(
+    scoped, owner
+):
+    """What the class permits and what was claimed are different facts, and the
+    file should not make a reader derive the second from the first."""
+    _signable(scoped, owner)
+    _declare(scoped, owner, standards_applied="EN 18031-1:2024")
+    tf = _call("get_conformity_status", scoped, owner)
+    assert tf["conformity_claimed"]["route"] == "self_assessment"
+    assert "Module A" in tf["conformity_claimed"]["basis"]

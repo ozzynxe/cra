@@ -1,4 +1,5 @@
 from cra.schemas.compliance import (
+    ConformityClaim,
     ComplianceState,
     MemberInfo,
     ProductClassification,
@@ -34,6 +35,7 @@ from cra.schemas.enums import (
 )
 
 __all__ = [
+    "ConformityClaim",
     "ActorKind",
     "Applicability",
     "ApprovalPolicy",

@@ -385,10 +385,38 @@ def test_confirming_never_rules_anything_out(scoped, owner):
 
 
 def test_confirming_says_part_ii_is_not_answered_by_the_assessment(scoped, owner):
+    """Part II is seeded applicable — its chapeau is unconditional — so the
+    list is of what is still *open*, not what is still undetermined.
+
+    Reporting undetermined ones would now be permanently empty, which reads as
+    "Part II is handled". Applicable is where these start; each still needs
+    evidence.
+    """
     r = _confirmed(scoped, owner)
     part_ii = {x.id for x in requirements() if x.part == "part_ii"}
-    assert set(r["part_ii_still_undetermined"]) == part_ii
+    assert set(r["part_ii_still_open"]) == part_ii
     assert "regardless of the risk assessment" in r["part_ii_note"]
+    assert "each still needs evidence" in r["part_ii_note"]
+
+
+def test_part_ii_is_applicable_from_the_start(scoped, owner):
+    """The user was left to hand-mark eight requirements the tool had just told
+    them were applicable by law — and that teaches `undetermined` to read as
+    noise to be cleared rather than as a real gap."""
+    reqs = _call("list_requirements", scoped, owner)["requirements"]
+    part_ii = [r for r in reqs if r["req_id"].startswith("annex_i.ii.")]
+    assert part_ii and all(r["applicability"] == "applicable" for r in part_ii)
+
+
+def test_part_ii_is_not_flagged_as_applicable_without_a_risk_basis(scoped, owner):
+    """It applies by its own chapeau rather than on the basis of the Article
+    13(2) assessment, so having no risk behind it is correct rather than a
+    thing to surface."""
+    _confirmed(scoped, owner)
+    quals = _call("get_conformity_status", scoped, owner)["qualifications"]
+    unbased = [q for q in quals if q.get("about") == "requirements"]
+    named = {r for q in unbased for r in q.get("requirements", [])}
+    assert not any(r.startswith("annex_i.ii.") for r in named)
 
 
 def test_confirming_freezes_a_hashed_copy(scoped, owner):

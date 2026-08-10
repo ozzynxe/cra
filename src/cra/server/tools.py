@@ -719,10 +719,14 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         """Decide, with the user, which CRA class a product falls in — then
         record it.
 
-        **Call it with no arguments first.** That writes nothing and returns
-        the Annex III / Annex IV category lists plus the out-of-scope tests, so
-        you and the user can work the question through. Only then call it again
-        with `product_class` to record the answer.
+        **Call it without `product_class` first.** That writes nothing and
+        returns the Annex III / Annex IV category lists plus the out-of-scope
+        tests, so you and the user can work the question through. Only then call
+        it again with `product_class` to record the answer.
+
+        (This said "with no arguments", which fails on the first session of a
+        new account — the most common session this tool has — because
+        `product_id` is still needed to say which product you are asking about.)
 
         `product_class` is `default`, `important_class_i`, `important_class_ii`
         or `critical`. `rationale` is mandatory and should say which category

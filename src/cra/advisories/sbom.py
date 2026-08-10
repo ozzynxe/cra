@@ -67,11 +67,23 @@ class ParsedSbom:
     format: str
 
     @property
-    def coverage_note(self) -> Optional[str]:
-        """What could not be checked, in words, or None if everything could."""
+    def coverage_note(self) -> str:
+        """What could and could not be checked, in words. Never None.
+
+        It used to return None when nothing was skipped, and `scan_advisories`
+        tells its caller to read this field. Null then carried two meanings —
+        "everything was covered" and "this was not worked out" — with no way to
+        tell them apart, so an agent reading null as full coverage was right by
+        luck rather than by construction. A field the description says to read
+        has to say something.
+        """
         missed = self.skipped_no_version + self.skipped_unknown_ecosystem
         if not missed:
-            return None
+            return (
+                f"All {self.total_entries} components in the bill of materials "
+                "could be checked: each carries a version and an ecosystem the "
+                "advisory database covers."
+            )
         parts = []
         if self.skipped_no_version:
             parts.append(f"{self.skipped_no_version} without a version")

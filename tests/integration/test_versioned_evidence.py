@@ -329,3 +329,27 @@ def test_every_catalogue_requirement_can_carry_a_currency_verdict(product, owner
     ids = {r.id for r in catalogue()}
     out = _call("list_requirements", product, owner)
     assert {r["req_id"] for r in out["requirements"]} == ids
+
+
+def test_a_file_with_no_release_says_nothing_is_tied_to_a_build(product, owner):
+    """`evidence_currency` returns nothing when there are no releases — there is
+    no build for evidence to be current *against* — so `evidence_without_a_
+    release`, the field that exists to say evidence is untied, is empty in
+    exactly the case where none of it is tied to anything.
+
+    A run froze, declared and signed a technical file in which no claim was tied
+    to any build, and nothing in the file said so. Reported at the file level
+    rather than per requirement: the per-item verdict would be noise on every
+    product that has not shipped yet, and the fact worth stating is about the
+    file.
+    """
+    tf = _call("assemble_technical_file", product, owner)
+    assert tf["release"] is None
+    assert "nothing in this file is tied to a build" in tf["describes_no_release"]
+    assert "record_release()" in tf["describes_no_release"]
+
+
+def test_once_a_release_exists_that_statement_is_gone(product, owner):
+    _ship(product, owner, "1.0.0")
+    tf = _call("assemble_technical_file", product, owner)
+    assert tf["describes_no_release"] is None

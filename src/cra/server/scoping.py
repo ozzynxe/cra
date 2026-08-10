@@ -257,7 +257,23 @@ def _seed_requirements(state) -> int:
                 text=req.summary,
                 celex_ref=eurlex.CRA_CELEX,
                 eli_ref=eurlex.citation_url(eurlex.CRA_CELEX),
-                applicability=Applicability.UNDETERMINED,
+                # Part II is applicable by law and the catalogue says so: its
+                # chapeau reads "Manufacturers of products with digital elements
+                # shall:" — unconditional, unqualified by the risk assessment and
+                # not by "where applicable", unlike Part I(2).
+                #
+                # Seeded undetermined until 2026-08-10, which left the user to
+                # hand-mark as applicable eight requirements the tool had just
+                # told them were applicable by law. Eight calls is the small
+                # cost; the corrosive one is that it teaches `undetermined` to
+                # read as noise to be cleared rather than as a real gap — the
+                # exact reading the release gate's wording works against. Same
+                # shape as the Annex II fix: the catalogue already knew.
+                applicability=(
+                    Applicability.APPLICABLE
+                    if req.part == "part_ii"
+                    else Applicability.UNDETERMINED
+                ),
                 status=RequirementStatus.NOT_STARTED,
             )
         )

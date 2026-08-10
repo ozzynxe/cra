@@ -107,8 +107,21 @@ def test_what_could_not_be_checked_is_counted_and_said_out_loud():
     assert "not the same as them being unaffected" in note
 
 
-def test_a_fully_checkable_sbom_has_no_coverage_caveat():
-    assert parse(_cyclonedx("pkg:pypi/requests@2.31.0")).coverage_note is None
+def test_a_fully_checkable_sbom_says_so_rather_than_saying_nothing():
+    """This returned None, and `scan_advisories` tells its caller to read the
+    field. Null carried two meanings — everything was covered, and this was not
+    worked out — with no way to tell them apart, so an agent reading null as
+    full coverage was right by luck. A field the description says to read has to
+    say something."""
+    note = parse(_cyclonedx("pkg:pypi/requests@2.31.0")).coverage_note
+    assert note is not None
+    assert "could be checked" in note
+
+
+def test_an_uncheckable_component_is_still_named(_=None):
+    note = parse(_cyclonedx("pkg:pypi/requests")).coverage_note
+    assert "without a version" in note
+    assert "not the same as them being unaffected" in note
 
 
 def test_rubbish_parses_to_nothing_rather_than_raising():

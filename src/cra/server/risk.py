@@ -981,14 +981,18 @@ def confirm_risk_assessment(
         product_id, _apply
     )
 
+    # Part II items that are still gaps, not ones still undetermined.
+    #
+    # They are seeded applicable now — the chapeau is unconditional, so leaving
+    # a user to mark them applicable was asking them to restate the law. That
+    # made the old "still undetermined" list permanently empty, which would have
+    # read as "Part II is handled". It is not: applicable is where these start,
+    # and each still needs evidence.
+    from cra.server.annex import _is_gap  # local: annex imports this module
+
     have = {i.req_id for i in state.requirements}
-    part_ii_open = [
-        r.id
-        for r in _PART_II
-        if r.id in have
-        and next(i for i in state.requirements if i.req_id == r.id).applicability
-        == Applicability.UNDETERMINED
-    ]
+    by_id = {i.req_id: i for i in state.requirements}
+    part_ii_open = [r.id for r in _PART_II if r.id in have and _is_gap(by_id[r.id])]
 
     # Echo the 13(3) statements back with their lengths. The confirmation check
     # is presence, not substance — it strips whitespace and accepts anything
@@ -1042,11 +1046,13 @@ def confirm_risk_assessment(
             "Decide each one with update_requirement(); marking one "
             "not_applicable needs a justification an auditor would accept."
         ),
-        "part_ii_still_undetermined": part_ii_open,
+        "part_ii_still_open": part_ii_open,
         "part_ii_note": (
             "Annex I Part II applies to every in-scope product regardless of "
-            "the risk assessment. Confirming an assessment does not answer "
-            "these."
+            "the risk assessment — its chapeau is unconditional, so these are "
+            "recorded as applicable from the start rather than waiting to be "
+            "marked. Confirming an assessment does not answer them; each still "
+            "needs evidence."
         ),
         "next": (
             "list_requirements(filter='gaps') for what is now open, then "

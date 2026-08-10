@@ -367,10 +367,15 @@ def _slot_view(
             for i in items
             if (currency.get(i.req_id) or {}).get("state") == "unversioned"
         ]
+        # Part II is excluded: it applies by its own chapeau rather than on the
+        # basis of the Article 13(2) assessment, so "applicable with no risk
+        # behind it" is its normal and correct state, not something to surface.
         unbased = [
             i.req_id
             for i in items
-            if i.applicability == Applicability.APPLICABLE and not i.risk_basis
+            if i.applicability == Applicability.APPLICABLE
+            and not i.risk_basis
+            and not i.req_id.startswith("annex_i.ii.")
         ]
         view["requirement_coverage"] = {
             "total": len(items),
@@ -502,21 +507,6 @@ def assemble_technical_file(
     state = _load(product_id)
     _member(state, actor_id, minimum=Role.MAINTAINER if finalize else Role.VIEWER)
 
-    if finalize:
-        # The gap report is the working view; the freeze is the legal act a
-        # signature later binds to. Refuse before any of the assembly work.
-        entitlements.require(
-            actor_id,
-            entitlements.CONFORMITY,
-            what="Freezing this version of the technical file would have produced a signable document.",
-            # The owner's plan, not the caller's. Without `product_id` this
-            # asked whether *whoever happened to run it* was covered, which is
-            # the loophole `plan_for_product` exists to close — it would answer
-            # differently for two members of the same product depending only on
-            # which of them made the call.
-            product_id=product_id,
-        )
-
     if state.classification.in_scope is not True:
         raise InvalidState(
             "this product is not recorded as in scope, so there is no Annex "
@@ -536,6 +526,45 @@ def assemble_technical_file(
         if not s["complete"] and not s["optional"] and not s.get("deferred")
     ]
     deferred = [s for s in slots if s.get("deferred")]
+
+    if finalize:
+        # Checked *after* the assembly work, not before it, so the refusal can
+        # describe the record rather than guess at it.
+        #
+        # It used to refuse first, on the reasoning that a call that cannot
+        # succeed should not do the work. That work is the gap report, which is
+        # free anyway — and refusing without it meant the message could only
+        # speak about the plan. It said freezing "would have produced a signable
+        # document", which is a claim about the file. An end-to-end run on a free
+        # account with five mandatory Annex VII sections empty read that and told
+        # the user their technical file was finished and only the plan stood in
+        # the way. The same call one tier up refuses with "cannot finalize with 5
+        # mandatory section(s) empty", so the product contradicted itself across
+        # plans, and the free tier's version was the flattering one.
+        #
+        # Every other refusal here says what *would have run*. This one now says
+        # that, and — when it is true — that it would not have frozen anyway.
+        blocked = [s["slot"] for s in missing]
+        entitlements.require(
+            actor_id,
+            entitlements.CONFORMITY,
+            what=(
+                "assemble_technical_file(finalize=true) would have run."
+                + (
+                    f" It would not have frozen this file: {len(blocked)} "
+                    f"mandatory Annex VII section(s) are empty — "
+                    f"{', '.join(blocked)}. That is true on any plan."
+                    if blocked
+                    else ""
+                )
+            ),
+            # The owner's plan, not the caller's. Without `product_id` this
+            # asked whether *whoever happened to run it* was covered, which is
+            # the loophole `plan_for_product` exists to close — it would answer
+            # differently for two members of the same product depending only on
+            # which of them made the call.
+            product_id=product_id,
+        )
 
     release = latest_release(state)
     retention = retention_status(state)
@@ -610,6 +639,19 @@ def assemble_technical_file(
         # telling you whether the file changed.
         "assembled_at": assembled_at,
         "release": release.version if release else None,
+        "describes_no_release": (
+            None
+            if release
+            else (
+                "No release has been recorded, so nothing in this file is tied "
+                "to a build placed on the market. Annex I attaches to the "
+                "product *as placed on the market*, so evidence here evidences "
+                "work rather than a shipped version, and `evidence_currency` "
+                "has no release to measure against — which is why nothing is "
+                "reported as stale or unversioned. record_release() when you "
+                "ship, and the file will say which build it describes."
+            )
+        ),
         "finalized": False,
         "retention": retention,
         "disclaimer": _DISCLAIMER,
@@ -1475,7 +1517,9 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
     unbased = [
         i.req_id
         for i in state.requirements
-        if i.applicability == Applicability.APPLICABLE and not i.risk_basis
+        if i.applicability == Applicability.APPLICABLE
+        and not i.risk_basis
+        and not i.req_id.startswith("annex_i.ii.")
     ]
     if unbased:
         qualifications.append({

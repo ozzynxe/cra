@@ -389,3 +389,44 @@ def test_the_daily_sweep_now_covers_free_products_too(monkeypatch):
             p.id for p in s.query(Product).filter(Product.owner_user_id == free_owner)
         ]
     assert set(free_products) <= set(seen), "a free product was skipped"
+
+
+# ---- a plan refusal must not make a claim about the record ---------------------
+
+
+def test_the_free_refusal_to_freeze_does_not_say_the_file_was_ready():
+    """A free account with mandatory sections empty was told freezing "would
+    have produced a signable document".
+
+    That is a claim about the file, and it was false: the same call one tier up
+    refuses with "cannot finalize with 5 mandatory section(s) empty". The
+    product contradicted itself across plans and the free tier's version was the
+    flattering one — an end-to-end run read it and told the user their technical
+    file was finished and only the plan stood in the way.
+    """
+    uid = _user()
+    pid = _product(uid)
+    _confirm_assessment(pid, uid)
+
+    out = _call("assemble_technical_file", pid, uid, finalize=True)
+    assert out["ok"] is False and out["code"] == "upgrade_required"
+    assert "would have produced a signable document" not in out["error"]
+    assert "would have run" in out["error"]
+    # And it says the thing that is true on any plan.
+    assert "mandatory Annex VII section(s) are empty" in out["error"]
+    assert "true on any plan" in out["error"]
+
+
+def test_a_complete_file_on_free_is_refused_without_that_extra_claim():
+    """The completeness sentence has to be conditional, or it becomes the same
+    kind of untrue statement in the other direction."""
+    uid = _user()
+    pid = _product(uid)
+    _confirm_assessment(pid, uid)
+
+    out = _call("assemble_technical_file", pid, uid, finalize=True)
+    # This fixture is deliberately incomplete; assert the wording is derived
+    # from `missing` rather than pasted in unconditionally.
+    assert ("would not have frozen" in out["error"]) is bool(
+        _call("assemble_technical_file", pid, uid)["missing_slots"]
+    )

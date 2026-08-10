@@ -288,6 +288,16 @@ class ReleaseGate(_Base):
     # rather than as "none", which is what they are.
     exploited_vulnerabilities: int = 0
     exploited_vulnerability_ids: list[str] = Field(default_factory=list)
+    # KEV-listed candidates ruled out before this release, with the reason given
+    # for each. Kept on the gate as well as in the frozen determination because
+    # `list_releases` reads the gate: a reader looking back a year later would
+    # otherwise have to open the evidence row to learn that a clean advisory
+    # picture was reached in part by dismissing an actively exploited advisory.
+    #
+    # Empty on every release recorded before 2026-08-10, which is honest — those
+    # determinations were frozen without the question being asked, and a frozen
+    # determination is not rewritten to be clearer after the fact.
+    exploited_dismissed: list[dict] = Field(default_factory=list)
     accepted_rationale: str = ""
     evidence_id: Optional[str] = None
     # Which feeds backed the determination, so it can be explained later.

@@ -271,6 +271,57 @@ def latest_scan(db, product_id: str):
     ).scalar_one_or_none()
 
 
+def dismissed_exploited(db, product_id: str) -> list[dict]:
+    """KEV-listed candidates that were ruled out, for the release record.
+
+    Dismissing is how the scan limb of the release gate goes green:
+    `open_candidate_counts` selects on `status == "open"`, and a dismissed
+    candidate is not open. That is correct — a dismissal is a legitimate act,
+    VEX exists for exactly this, and documenting why something does not affect
+    the product is Annex I Pt II(2) work rather than an absence of it.
+
+    What is not legitimate is a release determination that reads clean without
+    mentioning that its cleanliness rests on ruling out an advisory CISA lists
+    as actively exploited. An end-to-end run dismissed twelve candidates on
+    "We're not vulnerable", two of them Log4Shell at EPSS 0.99999, took open
+    candidates to zero, and nothing anywhere afterwards said so.
+
+    So this is reported, never counted as a blocker. Same shape as
+    `thin_justifications`: the record stands, and the thin ones are made visible
+    at the moment somebody is definitely looking. Nothing here reads the note —
+    the trigger is a fact from the CISA feed, not a judgement about what was
+    written.
+
+    Only `exploited`. A dismissal of an ordinary advisory is ordinary work and
+    listing every one of them at every release would bury the two that matter.
+    """
+    rows = db.execute(
+        select(AdvisoryCandidate)
+        .where(
+            AdvisoryCandidate.product_id == product_id,
+            AdvisoryCandidate.status == "dismissed",
+            AdvisoryCandidate.exploited.is_(True),
+        )
+        .order_by(AdvisoryCandidate.decided_at.asc())
+    ).scalars()
+    return [
+        {
+            "advisory_id": r.advisory_id,
+            "kev_cve_id": r.kev_cve_id,
+            "component": f"{r.component_name}@{r.component_version}",
+            "justification": r.disposition,
+            "note": r.disposition_note,
+            "decided_by": r.decided_by,
+            "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+            # The likelihood the judgement was made against, not today's. A
+            # dismissal is a claim about a moment, like the determination it
+            # ends up inside.
+            "epss_probability_at_decision": r.epss_probability_at_decision,
+        }
+        for r in rows
+    ]
+
+
 def open_candidate_counts(db, product_id: str) -> tuple[int, int]:
     """`(open, exploited_open)` — what the release gate has to weigh."""
     rows = list(

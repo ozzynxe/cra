@@ -497,6 +497,10 @@ def place_on_market(
     with session_scope() as db:
         scan = advisories.latest_scan(db, product_id)
         open_count, exploited_open = advisories.open_candidate_counts(db, product_id)
+        # Reported, never a blocker — see `dismissed_exploited`. Dismissing is
+        # how the scan limb of this gate goes green, and until #49 nothing
+        # afterwards said the release rested on ruling these out.
+        kev_dismissed = advisories.dismissed_exploited(db, product_id)
         # Local import: `reporting` and this module would otherwise cycle, the
         # same reason `advisories` imports it this way.
         from cra.server import reporting  # noqa: WPS433
@@ -599,6 +603,11 @@ def place_on_market(
             # authority reads in ten years; `0` there is a claim.
             "open_candidates": _open_candidate_view(open_count, scan_view),
             "exploited_open": exploited_open,
+            # In the frozen artefact, not only in the reply. A determination
+            # that says nought open without saying what was ruled out to get
+            # there is the version of this document that reads best and tells
+            # an auditor least.
+            "exploited_dismissed": kev_dismissed,
             "blockers_accepted": blockers,
             "accepted_rationale": accepted_rationale.strip(),
             "determined_by": actor_id or None,
@@ -657,6 +666,7 @@ def place_on_market(
             exploited_open=exploited_open,
             exploited_vulnerabilities=len(exploited_vuln_ids),
             exploited_vulnerability_ids=exploited_vuln_ids,
+            exploited_dismissed=kev_dismissed,
             accepted_rationale=accepted_rationale.strip(),
             evidence_id=row.id,
         )
@@ -737,11 +747,41 @@ def place_on_market(
             "found' when what it means is 'never looked'."
         )
 
+    if kev_dismissed:
+        # The list, and a sentence that survives being summarised. Both, for the
+        # #31 reason: a qualification three keys under a `note` announcing a
+        # frozen determination is a qualification a relaying agent drops.
+        out["exploited_dismissed"] = kev_dismissed
+        cves = ", ".join(
+            d["kev_cve_id"] or d["advisory_id"] for d in kev_dismissed[:4]
+        ) + ("…" if len(kev_dismissed) > 4 else "")
+        out["rests_on_dismissals"] = (
+            f"The advisory picture behind this release is clear in part because "
+            f"{len(kev_dismissed)} advisory(ies) CISA lists as actively "
+            f"exploited were ruled out: {cves}. Those are recorded decisions "
+            "with a VEX justification and a reason, not oversights, and they "
+            "are frozen into the determination with this release. Nothing here "
+            "second-guesses them — it makes sure the record says what the "
+            "clean result rests on."
+        )
+
     if not blockers:
-        out["note"] = (
+        settled = (
             f"Release {version} recorded, with the Annex I Pt I(2)(a) position "
             f"frozen as evidence against it. {versioning}"
         )
+        if kev_dismissed:
+            # Not a clean release reported as clean. The determination is
+            # sound; what it rests on has to travel with it.
+            out["note"] = (
+                f"Release {version} recorded with no open advisory candidates — "
+                f"reached in part by ruling out {len(kev_dismissed)} actively "
+                f"exploited advisory(ies) ({cves}). The frozen Annex I Pt "
+                "I(2)(a) position records each dismissal with the reason given "
+                f"for it. {versioning}"
+            )
+        else:
+            out["note"] = settled
         return out
 
     # The override, said in the headline rather than underneath it.
@@ -757,7 +797,14 @@ def place_on_market(
     out["note"] = (
         f"Release {version} recorded over {len(blockers)} unresolved "
         f"blocker(s) — {', '.join(codes)} — on the rationale "
-        f"{accepted_rationale.strip()!r}. What is frozen against this release "
+        f"{accepted_rationale.strip()!r}."
+        + (
+            f" It also rests on {len(kev_dismissed)} actively exploited "
+            f"advisory(ies) having been ruled out ({cves})."
+            if kev_dismissed
+            else ""
+        )
+        + " What is frozen against this release "
         "is that position: the blockers, and the reason given for shipping "
         "anyway. It is not a determination that the product ships without "
         f"known exploitable vulnerabilities. {versioning}"
@@ -816,6 +863,10 @@ def list_releases(*, product_id: str, actor_id: str = "") -> dict:
                 # auditor reads.
                 "exploited_vulnerabilities_at_release": r.gate.exploited_vulnerabilities,
                 "exploited_vulnerability_ids": list(r.gate.exploited_vulnerability_ids),
+                # What the clean advisory picture rested on. Empty is the
+                # normal case and also the value on every release frozen
+                # before the question was asked — see the schema comment.
+                "exploited_dismissed_at_release": list(r.gate.exploited_dismissed),
                 "accepted_rationale": r.gate.accepted_rationale,
                 "evidence_id": r.gate.evidence_id,
             },

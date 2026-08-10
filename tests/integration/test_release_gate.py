@@ -710,3 +710,145 @@ def test_an_sbom_keeps_the_version_it_was_recorded_for(product, owner):
     out = _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:4444444",
                 version="2.0.0")
     assert out["applies_to_version"] == "2.0.0"
+
+
+# ---- issue #49: a dismissal is how the gate goes green ------------------------
+
+
+def test_a_dismissed_kev_advisory_is_named_in_the_release_record(
+    product, owner, clean_scan, monkeypatch
+):
+    """Issue #49. `open_candidate_counts` selects on `status == "open"`, so a
+    dismissed candidate is not open — which makes dismissing the way the scan
+    limb of this gate goes green.
+
+    An end-to-end run dismissed twelve candidates on "We're not vulnerable", two
+    of them Log4Shell at EPSS 0.99999, took open candidates to zero, and nothing
+    afterwards mentioned it. The release read clean, the frozen determination
+    read clean, and both were true and incomplete.
+
+    The dismissal is not the problem and is not blocked here: VEX exists for
+    exactly this, and documenting why something does not affect the product is
+    Annex I Pt II(2) work. The silence afterwards was the problem.
+    """
+    candidate_id = _exploited_candidate(product, owner, monkeypatch)
+    _call("scan_advisories", product, owner)
+    _call(
+        "dismiss_advisory", product, owner,
+        candidate_id=candidate_id,
+        justification="vulnerable_code_not_present",
+        note="The JndiLookup class is stripped from our shaded jar; verified in the 1.0.0 build.",
+    )
+
+    out = _release(product, owner, version="1.0.0")
+    assert out["ok"] is True, out
+    assert out["open_candidates"] == 0, "a dismissal should still clear the gate"
+
+    # Named, with what was decided and why.
+    listed = out["exploited_dismissed"]
+    assert len(listed) == 1
+    assert listed[0]["kev_cve_id"] == "CVE-2021-44228"
+    assert listed[0]["justification"] == "vulnerable_code_not_present"
+    assert "JndiLookup" in listed[0]["note"]
+    assert listed[0]["decided_by"] == owner
+
+    # And in the headline, because a qualification under a `note` announcing a
+    # frozen determination is one a summarising agent drops — #31's lesson.
+    assert "ruling out 1 actively exploited advisory" in out["note"]
+    assert "CVE-2021-44228" in out["note"]
+    assert "second-guesses them" in out["rests_on_dismissals"]
+
+
+def test_the_dismissal_reaches_the_frozen_determination(
+    product, owner, clean_scan, monkeypatch
+):
+    """The reply is read once; the determination is read in ten years."""
+    candidate_id = _exploited_candidate(product, owner, monkeypatch)
+    _call("scan_advisories", product, owner)
+    _call(
+        "dismiss_advisory", product, owner,
+        candidate_id=candidate_id,
+        justification="inline_mitigations_already_exist",
+        note="formatMsgNoLookups is set in the shipped configuration.",
+    )
+    _release(product, owner, version="1.0.0")
+
+    import json
+    body = json.loads(_evidence(product)[0].inline_body)
+    frozen = body["exploited_dismissed"]
+    assert len(frozen) == 1
+    assert frozen[0]["kev_cve_id"] == "CVE-2021-44228"
+    assert frozen[0]["justification"] == "inline_mitigations_already_exist"
+    assert "formatMsgNoLookups" in frozen[0]["note"]
+    # The determination still reports the true zero beside it.
+    assert body["open_candidates"] == 0
+
+
+def test_a_clean_release_with_no_dismissals_still_reads_clean(
+    product, owner, clean_scan
+):
+    """A gate that hedged every pass would make the qualified ones
+    indistinguishable — the same reason `record_release`'s override note is
+    written the way it is."""
+    _call("scan_advisories", product, owner)
+    out = _release(product, owner, version="1.0.0")
+    assert out["ok"] is True
+    assert "exploited_dismissed" not in out
+    assert "rests_on_dismissals" not in out
+    assert "ruling out" not in out["note"]
+
+
+def test_an_ordinary_dismissal_is_not_listed(product, owner, clean_scan, monkeypatch):
+    """Only KEV-listed ones. Dismissing an ordinary advisory is ordinary work,
+    and listing every one at every release would bury the two that matter."""
+    from cra.db import AdvisoryCandidate, session_scope as _scope
+
+    with _scope() as db:
+        row = AdvisoryCandidate(
+            product_id=product,
+            advisory_id="GHSA-quiet-0000-0000",
+            cve_ids=["CVE-2024-00000"],
+            component_name="left-pad",
+            component_version="1.3.0",
+            component_ecosystem="npm",
+            summary="Something minor",
+            exploited=False,
+            status="open",
+        )
+        db.add(row)
+        db.flush()
+        cid = row.id
+
+    _call("scan_advisories", product, owner)
+    _call(
+        "dismiss_advisory", product, owner, candidate_id=cid,
+        justification="component_not_present",
+        note="Not shipped in the artifact we place on the market.",
+    )
+    out = _release(product, owner, version="1.0.0")
+    assert out["ok"] is True
+    assert "exploited_dismissed" not in out
+
+
+def test_list_releases_shows_what_the_clean_picture_rested_on(
+    product, owner, clean_scan, monkeypatch
+):
+    """The surface someone reads a year later. `list_releases` renders the gate
+    from the blob, not the evidence row — so putting the dismissals only in the
+    frozen determination would leave the durable *view* silent about them."""
+    candidate_id = _exploited_candidate(product, owner, monkeypatch)
+    _call("scan_advisories", product, owner)
+    _call(
+        "dismiss_advisory", product, owner, candidate_id=candidate_id,
+        justification="vulnerable_code_not_in_execute_path",
+        note="The lookup path is unreachable in our configuration.",
+    )
+    _release(product, owner, version="1.0.0")
+
+    rel = _call("list_releases", product, owner)["releases"][0]
+    listed = rel["i2a"]["exploited_dismissed_at_release"]
+    assert len(listed) == 1
+    assert listed[0]["kev_cve_id"] == "CVE-2021-44228"
+    assert listed[0]["justification"] == "vulnerable_code_not_in_execute_path"
+    # The true zero still sits beside it.
+    assert rel["i2a"]["open_candidates_at_release"] == 0

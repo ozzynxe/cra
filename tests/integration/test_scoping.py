@@ -418,7 +418,51 @@ def test_recent_activity_reads_the_audit_trail_newest_first(product, owner):
     assert ops[0] == "classify_product"
     assert "record_sbom" in ops
     assert all(e["accountable_user_id"] == owner for e in r["events"])
+    # #46: every one of these arrived over MCP, so every one is `agent`.
     assert all(e["actor_kind"] == "agent" for e in r["events"])
+
+
+def test_activity_names_the_accountable_person_not_only_their_uuid(product, owner):
+    """Issue #38. "What did the others do while I was out?" was unanswerable:
+    every event identified the accountable party as a UUID, and there is no tool
+    a caller could use to resolve one.
+
+    The id stays — it is what the trail stores and what another call takes. The
+    label is what makes the response usable without a lookup that does not exist.
+    """
+    _call("record_sbom", product, owner, sbom=SBOM)
+    with session_scope() as s:
+        expected = s.get(User, owner).email
+
+    r = _call("get_recent_activity", product, owner)
+    ev = r["events"][0]
+    assert ev["accountable_user_id"] == owner
+    assert ev["accountable"] == expected
+
+    # And the response says what `actor_kind: agent` and a null `actor_model`
+    # actually mean, rather than leaving both to be inferred from column names.
+    assert ev["actor_kind"] == "agent"
+    assert "does not mean nobody was asked" in r["attribution"]
+    assert "the model was never recorded" in r["attribution"]
+
+
+def test_a_display_name_wins_over_the_address(product, owner):
+    with session_scope() as s:
+        s.get(User, owner).display_name = "Priya R."
+    _call("record_sbom", product, owner, sbom=SBOM)
+    r = _call("get_recent_activity", product, owner)
+    assert r["events"][0]["accountable"] == "Priya R."
+
+
+def test_members_are_named_in_the_status_read_too(product, owner):
+    """Same defect, the other surface. `get_compliance_status` is the call an
+    agent makes first, and its members list was UUID-only."""
+    with session_scope() as s:
+        expected = s.get(User, owner).email
+    members = _call("get_compliance_status", product, owner)["members"]
+    row = next(m for m in members if m["user_id"] == owner)
+    assert row["name"] == expected
+    assert row["role"] == "owner"
 
 
 def test_since_filters_and_demands_a_timezone(product, owner):

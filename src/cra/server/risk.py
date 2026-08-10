@@ -489,7 +489,6 @@ def start_risk_assessment(
             subject_id=f"v{ra.version}",
             op="start_risk_assessment",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=(ra.scope_note or "")[:500],
             payload={"version": ra.version, "changed": sorted(changed)},
         )
@@ -788,7 +787,6 @@ def decide_risk(
             subject_id=risk_id,
             op="decide_risk",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=rationale.strip()[:500],
             payload={
                 "decision": decision,
@@ -947,7 +945,6 @@ def confirm_risk_assessment(
             subject_id=f"v{ra.version}",
             op="confirm_risk_assessment",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=rationale.strip()[:500],
             payload={
                 "version": ra.version,

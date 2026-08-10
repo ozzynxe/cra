@@ -714,7 +714,6 @@ def set_support_period(
             subject_id=product_id,
             op="set_support_period",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=rationale.strip()[:500],
             payload={
                 "start": anchor.isoformat(),
@@ -1064,6 +1063,34 @@ def remove_member(*, product_id: str, actor_id: str = "", user_id: str) -> dict:
 # ---- reading the trail -------------------------------------------------------
 
 
+def _actor_labels(db, user_ids: set) -> dict[str, str]:
+    """Resolve accountable user ids to something a person can read.
+
+    `display_name` where set, otherwise the address. Issue #38: the trail
+    recorded *which account* was accountable and the response said only that,
+    as a UUID — which answers "when" and not "who", and leaves a returning
+    colleague needing a lookup no tool offers.
+
+    Addresses rather than a masked form, deliberately. These are co-members of
+    one product; `add_member(email=…)` means whoever added them typed the
+    address in. The care taken elsewhere not to reveal an address —
+    `add_member`'s reply is identical whether or not an account exists — is
+    about people *outside* the product, and that distinction is the whole
+    reason it can be different here.
+
+    Ids that resolve to nothing are left out rather than labelled "unknown": a
+    removed account is a real thing the trail is meant to preserve, and naming
+    it "unknown user" would read as data loss.
+    """
+    ids = {u for u in user_ids if u}
+    if not ids:
+        return {}
+    from cra.db import User  # local: avoids a cycle at module load
+
+    rows = db.execute(select(User).where(User.id.in_(ids))).scalars()
+    return {u.id: (u.display_name or u.email) for u in rows if (u.display_name or u.email)}
+
+
 def get_recent_activity(
     *,
     product_id: str,
@@ -1104,13 +1131,18 @@ def get_recent_activity(
                 q.order_by(AuditEvent.ts.desc(), AuditEvent.id.desc()).limit(limit)
             ).scalars()
         )
+        names = _actor_labels(db, {e.accountable_user_id for e in rows})
         events = [
             {
                 "ts": e.ts.isoformat(),
                 "op": e.op,
                 "subject_type": e.subject_type,
                 "subject_id": e.subject_id,
+                # Both. The id is what the trail stores and what another tool
+                # takes; the label is what makes "what did the others do?"
+                # answerable without a lookup the caller has no tool for.
                 "accountable_user_id": e.accountable_user_id,
+                "accountable": names.get(e.accountable_user_id),
                 "actor_kind": e.actor_kind,
                 "actor_model": e.actor_model,
                 "rationale": e.rationale,
@@ -1118,7 +1150,7 @@ def get_recent_activity(
             for e in rows
         ]
 
-    return {
+    out = {
         "ok": True,
         "product_id": product_id,
         "count": len(events),
@@ -1129,6 +1161,21 @@ def get_recent_activity(
             "transaction as the change."
         ),
     }
+
+    # What `actor_kind` does and does not tell you, said once rather than left
+    # to be inferred from a column name. Almost everything here is `agent`,
+    # because almost everything arrives over MCP; that is a statement about the
+    # channel, not about whether a person was consulted.
+    if any(e["actor_kind"] == "agent" and not e["actor_model"] for e in events):
+        out["attribution"] = (
+            "`accountable` is the account answerable for the action. "
+            "`actor_kind: agent` means the call came over MCP — which is how "
+            "every write reaches this service, so it does not mean nobody was "
+            "asked. Where `actor_model` is null the model was never recorded, "
+            "not that none was involved: only propose_risks is told which model "
+            "wrote its text, because only there does the caller pass it."
+        )
+    return out
 
 
 

@@ -47,6 +47,28 @@ def record(
     it. Both are needed: "an agent attached this evidence" does not answer an
     auditor's question, and neither does a bare user id when the work was done
     autonomously.
+
+    **`actor_kind` defaults to `agent`, and nothing should override it to
+    `human` today.** Eleven handlers used to pass `actor_kind="human"` —
+    `decide_risk`, `confirm_risk_assessment`, `sign_off`, `place_on_market`,
+    `dismiss_advisory` among them — while ordinary edits like
+    `update_requirement` passed nothing and were recorded honestly. That is
+    exactly backwards: every one of those calls arrives over the MCP wire, which
+    means an agent made it, and the server has no way to know a person was in
+    the room. It labelled the acts that decide, freeze and sign as human, on no
+    evidence.
+
+    That is the failure this codebase is built against, turned inward. An
+    unverifiable claim is reported as unverified everywhere else —
+    `open_candidates: null` where nothing was scanned, `unversioned` rather than
+    stale, `incomparable` rather than superseded. The audit trail is the
+    deliverable; it does not get to assert what the rest of the product refuses
+    to.
+
+    The parameter stays because a genuinely human-originated write may exist one
+    day — the console is read-only, so there is none now. A test sweeps for it
+    (`tests/unit/test_actor_kind.py`); a new `human` needs a reason that survives
+    reading this.
     """
     event = AuditEvent(
         product_id=product_id,

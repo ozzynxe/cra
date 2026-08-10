@@ -1285,7 +1285,6 @@ def generate_simplified_declaration(
             subject_id=evidence_id,
             op="generate_simplified_declaration",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             payload={
                 "form": "simplified",
                 "full_declaration_url": full_declaration_url.strip(),
@@ -1465,7 +1464,6 @@ def sign_off(
             subject_id=attestation_id,
             op="sign_off",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=statement.strip()[:500],
             payload={
                 "signer_name": signer_name.strip(),

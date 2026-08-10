@@ -683,7 +683,6 @@ def place_on_market(
             subject_id=version,
             op="place_on_market",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=(accepted_rationale.strip() or f"Release {version}")[:500],
             payload={
                 "version": version,

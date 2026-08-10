@@ -315,7 +315,9 @@ def test_a_dismissal_is_recorded_as_evidence_not_as_an_absence(product, owner, f
             .filter(AuditEvent.product_id == product, AuditEvent.op == "dismiss_advisory")
             .one()
         )
-    assert audit.actor_kind == "human"
+    # #46: `agent`. Dismissing a KEV-listed advisory is the sharpest place
+    # the trail must not overstate what it saw.
+    assert audit.actor_kind == "agent"
     assert audit.payload["justification"] == "vulnerable_code_not_in_execute_path"
     assert audit.payload["was_actively_exploited"] is True
 

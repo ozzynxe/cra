@@ -354,7 +354,6 @@ def set_submitter_profile(
             subject_type="submitter_profile",
             op="set_submitter_profile",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             payload=changed,
         )
         return state, p.model_dump(mode="json")

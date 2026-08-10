@@ -289,7 +289,9 @@ def test_the_correction_is_auditable_with_both_dates(product, owner):
             )
             .one()
         )
-    assert row.actor_kind == "human"
+    # #46: `agent`, because the call came over MCP. The account answerable
+    # for it is the fact worth asserting, and it is asserted alongside.
+    assert row.actor_kind == "agent"
     assert row.accountable_user_id == owner
     assert row.payload["now"] == aware.isoformat()
     assert row.payload["was"] != row.payload["now"]

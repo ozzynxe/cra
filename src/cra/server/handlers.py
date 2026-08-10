@@ -255,11 +255,36 @@ def get_compliance_status(*, product_id: str, actor_id: str = "") -> dict:
             "by_status": _count_by(reqs, "status"),
             "by_applicability": _count_by(reqs, "applicability"),
         },
-        "members": [
-            {"user_id": uid, "role": m.role} for uid, m in s.members.items()
-        ],
+        # Named, not only numbered. Same defect as #38 on `get_recent_activity`:
+        # a UUID answers which account and not which colleague, and this is the
+        # response an agent reads when asked who else is on a product.
+        "members": _member_views(s),
         "disclaimer": _DISCLAIMER,
     }
+
+
+def _member_views(s) -> list[dict]:
+    """Members with a readable label where one can be resolved.
+
+    Best-effort by design: the blob is the source of truth for *membership*, and
+    the `users` row only supplies the label. A database that cannot be reached
+    must degrade to the ids rather than fail the whole status read, which is the
+    call an agent makes first in any conversation.
+    """
+    rows = [{"user_id": uid, "role": m.role} for uid, m in s.members.items()]
+    try:
+        from cra.db import session_scope
+        from cra.server.scoping import _actor_labels
+
+        with session_scope() as db:
+            names = _actor_labels(db, {r["user_id"] for r in rows})
+    except Exception:  # noqa: BLE001 — dev file store, or no DATABASE_URL
+        return rows
+    for r in rows:
+        label = names.get(r["user_id"])
+        if label:
+            r["name"] = label
+    return rows
 
 
 def _no_clocks_note(s, reqs) -> str:

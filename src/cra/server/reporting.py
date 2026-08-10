@@ -507,7 +507,6 @@ def _reanchor(
         subject_id=incident.id,
         op="reanchor_awareness",
         accountable_user_id=actor_id or None,
-        actor_kind="human",
         rationale=rationale.strip()[:500],
         payload={
             "was": was.isoformat(),

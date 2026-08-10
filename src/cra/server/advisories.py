@@ -629,7 +629,6 @@ def confirm_advisory(
             subject_id=candidate_id,
             op="confirm_advisory",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=rationale.strip()[:500],
             payload={
                 "advisory_id": snapshot["advisory_id"],
@@ -753,7 +752,6 @@ def dismiss_advisory(
             subject_id=candidate_id,
             op="dismiss_advisory",
             accountable_user_id=actor_id or None,
-            actor_kind="human",
             rationale=note.strip()[:500],
             payload={
                 "advisory_id": snapshot["advisory_id"],

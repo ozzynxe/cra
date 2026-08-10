@@ -288,7 +288,17 @@ def test_accepting_a_risk_requires_a_treatment(scoped, owner):
     assert r["ok"] is False and "treatment" in r["error"]
 
 
-def test_a_decision_is_recorded_as_a_human_act(scoped, owner):
+def test_a_decision_records_the_account_and_the_drafting_model(scoped, owner):
+    """Who is answerable, and what wrote the text they accepted.
+
+    Issue #46. This asserted `human`, which the server cannot know: the call
+    arrives over MCP, so an agent made it. What the trail can honestly say is
+    which *account* is answerable, and that is asserted below.
+
+    The provenance half is the load-bearing part and is unchanged: a decision
+    carries the model that drafted what it accepted, so the trail shows an
+    account signing off on something a model wrote.
+    """
     _accepted(scoped, owner, model="claude-opus-5")
     with session_scope() as s:
         row = (
@@ -296,10 +306,9 @@ def test_a_decision_is_recorded_as_a_human_act(scoped, owner):
             .filter(AuditEvent.product_id == scoped, AuditEvent.op == "decide_risk")
             .one()
         )
-    assert row.actor_kind == "human"
+    assert row.actor_kind == "agent"
     assert row.accountable_user_id == owner
-    # The draft's provenance travels with the decision, so the trail shows a
-    # person signed off on something a model wrote.
+    # The draft's provenance travels with the decision.
     assert row.payload["drafted_by_model"] == "claude-opus-5"
 
 

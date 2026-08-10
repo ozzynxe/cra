@@ -613,8 +613,18 @@ def test_a_signature_binds_to_the_exact_version(scoped, owner):
     assert att.subject_version_hash == tf["content_hash"]
 
 
-def test_a_signature_is_recorded_as_a_human_act(scoped, owner):
-    """Every other op is `agent`. A named person taking responsibility is not."""
+def test_a_signature_records_the_account_and_the_statement(scoped, owner):
+    """The signer is a name the caller supplied; the account is what we saw.
+
+    Issue #46. This asserted `human`, which the server cannot know: the call
+    arrives over MCP, so an agent made it. What the trail can honestly say is
+    which *account* is answerable, and that is asserted below.
+
+    `signer_name` is still recorded — it is the person taking responsibility,
+    as asserted by whoever called. The two are different facts and the trail
+    now keeps them apart instead of merging them into a claim about who was
+    at the keyboard.
+    """
     _signable(scoped, owner)
     _call(
         "sign_off",
@@ -630,7 +640,8 @@ def test_a_signature_is_recorded_as_a_human_act(scoped, owner):
             .filter(AuditEvent.product_id == scoped, AuditEvent.op == "sign_off")
             .one()
         )
-    assert row.actor_kind == "human"
+    assert row.actor_kind == "agent"
+    assert row.accountable_user_id == owner
     assert row.rationale == "I attest."
 
 

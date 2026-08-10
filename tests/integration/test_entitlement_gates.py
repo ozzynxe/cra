@@ -238,7 +238,7 @@ def test_the_work_is_free(tool, args):
 @pytest.mark.parametrize(
     "tool,args",
     [
-        ("record_release", {"version": "1.0.0"}),
+        ("place_on_market", {"version": "1.0.0"}),
         ("set_support_period", {"end": "2036-01-01T00:00:00+00:00", "rationale": "x"}),
         ("generate_declaration_of_conformity", {}),
         ("generate_simplified_declaration", {"url": "https://example.com/doc"}),

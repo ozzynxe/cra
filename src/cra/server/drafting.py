@@ -46,6 +46,7 @@ from cra.schemas.enums import EvidenceKind, IncidentKind, ReportStage
 from cra.server import audit, store_backend
 from cra.server.errors import InvalidState, NotFound
 from cra.server.reporting import _parse_ts, _require_member
+from cra.server.scoping import _member
 
 _STAGE_LABEL = {
     ReportStage.EARLY_WARNING: "24h",
@@ -326,8 +327,7 @@ def set_submitter_profile(
     not "what did we ship" but "who is answerable and are they able to submit".
     """
     def _apply(state, db):
-        if actor_id and actor_id not in state.members:
-            raise NotFound(f"no product {product_id!r} for this user")
+        _member(state, actor_id)
 
         p = state.submitter
         changed: dict = {}
@@ -379,8 +379,7 @@ def check_reporting_readiness(*, product_id: str, actor_id: str = "") -> dict:
     failure this tool exists to stop.
     """
     state = store_backend.get_backend().load_state(product_id)
-    if actor_id and actor_id not in state.members:
-        raise NotFound(f"no product {product_id!r} for this user")
+    _member(state, actor_id)
 
     p = state.submitter
     blockers: list[dict] = []

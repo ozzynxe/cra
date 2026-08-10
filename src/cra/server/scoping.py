@@ -638,15 +638,22 @@ def set_support_period(
         # rather than a question it has to ask.
         anchor = start_at
         inferred_from = None
-        if anchor is None and state.releases:
-            first = min(state.releases, key=lambda r: r.released_at)
+        # Placed only: 13(8) runs from placing on the market, and a build
+        # nobody shipped is not that.
+        from cra.server import annex as _annex  # local: annex imports this module
+
+        placed = _annex.placed_releases(state)
+        if anchor is None and placed:
+            first = min(placed, key=lambda r: r.released_at)
             anchor, inferred_from = first.released_at, first.version
         if anchor is None:
             raise InvalidState(
                 "start is required: the support period runs from placing on "
-                "the market, and no release has been recorded for this product "
-                "to take that date from. Either record_release() first, or "
-                "pass start=... explicitly."
+                "the market, and no version of this product has been placed on "
+                "the market to take that date from. Either "
+                "place_on_market(version=...) first, or pass start=... "
+                "explicitly. A recorded build is not a placing — that is what "
+                "the two calls are for."
             )
         if end_at <= anchor:
             raise InvalidState(
@@ -828,13 +835,16 @@ def record_sbom(
         # the latest *existing* release, so an SBOM explicitly labelled 2.0.0
         # was filed as evidence for 1.0.0 — which the comment that used to sit
         # here correctly called worse than leaving it untagged, while the code
-        # beneath it did exactly that. `record_release` stores versions verbatim
+        # beneath it did exactly that. `record_build` stores versions verbatim
         # and never parses them, so there is nothing to validate against anyway.
         #
         # With no `version`, the SBOM describes what currently ships.
         from cra.server import annex  # local: annex imports this module
 
-        release = annex.latest_release(state)
+        # The *build*, not the last placing. An SBOM describes an artefact,
+        # and the one you just scanned is usually the one you just built —
+        # which may not have been placed on the market yet.
+        release = annex.latest_build(state)
         applies_to = version or (release.version if release else None)
 
         evidence = Evidence(

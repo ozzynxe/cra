@@ -358,17 +358,98 @@ def _open_candidate_view(open_count: int, scan_view) -> Optional[int]:
     return open_count if scan_view is not None else None
 
 
-def record_release(
+def record_build(
+    *,
+    product_id: str,
+    actor_id: str = "",
+    version: str,
+    built_at: Optional[str] = None,
+    source_ref: str = "",
+    notes: str = "",
+) -> dict:
+    """Record that a version exists. Makes no claim about the market.
+
+    The other half of what `record_release` used to do in one call. This one is
+    free, gates on nothing, changes no lifecycle, freezes no determination and
+    writes nothing to the statutory archive — because none of that follows from
+    a build existing. `place_on_market` is the act that does all of it.
+    """
+    if not version.strip():
+        raise InvalidState(
+            "version is required — it is what evidence is tied to. Use whatever "
+            "identifier you actually ship under; it is stored verbatim and "
+            "never parsed."
+        )
+    version = version.strip()
+    when = _parse_ts(built_at, field="built_at") or _now()
+
+    def _apply(state, db):
+        _member(state, actor_id, minimum=Role.EDITOR)
+        if any(r.version == version for r in state.releases):
+            raise InvalidState(
+                f"version {version!r} is already recorded. Versions are the "
+                "anchor evidence hangs off, so one cannot be recorded twice. "
+                "To declare this one placed on the market, use "
+                f"place_on_market(version={version!r})."
+            )
+        state.releases.append(
+            Release(
+                version=version,
+                released_at=None,
+                built_at=when,
+                source_ref=source_ref,
+                notes=notes,
+                recorded_at=_now(),
+                recorded_by=actor_id or "",
+            )
+        )
+        audit.record(
+            db,
+            product_id=product_id,
+            subject_type="release",
+            subject_id=version,
+            op="record_build",
+            accountable_user_id=actor_id or None,
+            rationale=f"Build {version} recorded"[:500],
+            payload={"version": version, "built_at": when.isoformat()},
+        )
+        return state, None
+
+    store_backend.mutate(product_id, _apply)
+    return {
+        "ok": True,
+        "version": version,
+        "built_at": when.isoformat(),
+        "placed_on_market": False,
+        "note": (
+            f"Version {version} is recorded. Nothing here says it was placed on "
+            "the market, so no Annex I Pt I(2)(a) determination was made, no "
+            "retention clock started and the lifecycle is unchanged. Evidence "
+            f"can now be attached against {version}."
+        ),
+        "next": (
+            f"place_on_market(version={version!r}) when it actually ships. That "
+            "is the call that checks the advisory picture and the file behind "
+            "it, and freezes the I(2)(a) position."
+        ),
+    }
+
+
+def place_on_market(
     *,
     product_id: str,
     actor_id: str = "",
     version: str,
     released_at: Optional[str] = None,
-    source_ref: str = "",
-    notes: str = "",
     accepted_rationale: str = "",
 ) -> dict:
-    """Record a version as placed on the market, with its I(2)(a) determination.
+    """Declare a recorded version placed on the market, with its I(2)(a) determination.
+
+    The legal half of what `record_release` used to do. Article 3(21) placing
+    on the market starts the Article 13(13) retention clock, anchors the 13(8)
+    support period and freezes the Annex I Pt I(2)(a) position — so it is
+    separated from merely recording that a build exists, which is
+    `record_build` and asserts none of that.
 
     Refuses if the record cannot support the claim: the advisory picture (no
     scan, a scan that could not reach its feeds, one older than seven days,
@@ -386,6 +467,32 @@ def record_release(
         )
     version = version.strip()
     when = _parse_ts(released_at, field="released_at") or _now()
+
+    # Membership before anything is said about the product. Both refusals below
+    # disclose whether a given version exists here, and a product id is not a
+    # capability — the same reason `get_compliance_status` gates before it
+    # reads. The state read is reused for the gate below rather than repeated.
+    _state = _load(product_id)
+    _member(_state, actor_id, minimum=Role.MAINTAINER)
+
+    # Checked before any of the gate work below, so an unrecorded version costs
+    # nothing and gets the one sentence that is useful. Re-checked inside the
+    # lock, where it is the check that actually binds.
+    _existing = next((r for r in _state.releases if r.version == version), None)
+    if _existing is None:
+        raise InvalidState(
+            f"no version {version!r} is recorded for this product. Placing on "
+            "the market is a statement about a build that exists, so record it "
+            f"first with record_build(version={version!r}) — that call is free "
+            "and asserts nothing."
+        )
+    if _existing.released_at is not None:
+        raise InvalidState(
+            f"version {version!r} was already placed on the market on "
+            f"{_existing.released_at.date().isoformat()}. The Annex I Pt "
+            "I(2)(a) determination is a claim about that instant and is not "
+            "remade."
+        )
 
     with session_scope() as db:
         scan = advisories.latest_scan(db, product_id)
@@ -418,13 +525,13 @@ def record_release(
         scan_at = scan.ran_at if scan else None
         scan_sources_ok = bool(scan and scan.sources_ok)
 
-    # Read for the gate only. `_apply` re-reads under `FOR UPDATE`, so the
-    # *write* is consistent even where this copy went a moment stale — and the
-    # scan blockers above are already computed outside the lock for the same
-    # reason. A gate that reports and can be waived is not a place to add a
-    # lock; the last-owner and plan-cap guards are, and they live inside `fn`.
-    state = _load(product_id)
-    _member(state, actor_id, minimum=Role.MAINTAINER)
+    # For the gate only, and already read and membership-checked above. `_apply`
+    # re-reads under `FOR UPDATE`, so the *write* is consistent even where this
+    # copy went a moment stale — and the scan blockers above are computed
+    # outside the lock for the same reason. A gate that reports and can be
+    # waived is not a place to add a lock; the last-owner and plan-cap guards
+    # are, and they live inside `fn`.
+    state = _state
 
     blockers = _blockers(
         state, scan, open_count, exploited_open, when,
@@ -462,10 +569,18 @@ def record_release(
                 "this product is not recorded as in scope, so there is no Annex "
                 "I determination to make. Run classify_product(in_scope=true)."
             )
-        if any(r.version == version for r in state.releases):
+        # Re-found under the lock. The copy checked above may be stale, and two
+        # agents placing the same version must not both succeed.
+        release = next((r for r in state.releases if r.version == version), None)
+        if release is None:
             raise InvalidState(
-                f"release {version!r} is already recorded. Versions are the "
-                "anchor evidence hangs off, so one cannot be recorded twice."
+                f"no version {version!r} is recorded for this product. "
+                f"record_build(version={version!r}) first."
+            )
+        if release.released_at is not None:
+            raise InvalidState(
+                f"version {version!r} was already placed on the market on "
+                f"{release.released_at.date().isoformat()}."
             )
 
         determination = {
@@ -477,7 +592,7 @@ def record_release(
             "product_id": product_id,
             "release": version,
             "released_at": when.isoformat(),
-            "source_ref": source_ref,
+            "source_ref": release.source_ref,
             "scan": scan_view,
             "scan_age_days": round(age_days, 2) if age_days is not None else None,
             # Null where nothing was looked for. This is the artefact an
@@ -508,7 +623,7 @@ def record_release(
             content_type="application/json",
             size_bytes=len(body.encode()),
             sha256=digest,
-            source_ref=source_ref or f"cra-mcp record_release {version}",
+            source_ref=release.source_ref or f"cra-mcp place_on_market {version}",
             applies_to_version=version,
             added_by_user_id=actor_id or None,
         )
@@ -525,33 +640,26 @@ def record_release(
                 "released_at": when.isoformat(),
                 "determination_sha256": digest,
                 "evidence_id": row.id,
-                "source_ref": source_ref,
+                "source_ref": release.source_ref,
                 "blockers_accepted": blockers,
                 "accepted_rationale": accepted_rationale,
             },
             digest=digest,
         )
 
-        release = Release(
-            version=version,
-            released_at=when,
-            source_ref=source_ref,
-            notes=notes,
-            recorded_at=_now(),
-            recorded_by=actor_id or "",
-            gate=ReleaseGate(
-                scan_at=scan_at,
-                scan_sources_ok=scan_sources_ok,
-                scan_age_days=round(age_days, 2) if age_days is not None else None,
-                open_candidates=_open_candidate_view(open_count, scan_view),
-                exploited_open=exploited_open,
-                exploited_vulnerabilities=len(exploited_vuln_ids),
-                exploited_vulnerability_ids=exploited_vuln_ids,
-                accepted_rationale=accepted_rationale.strip(),
-                evidence_id=row.id,
-            ),
+        release.released_at = when
+        release.placed_by = actor_id or ""
+        release.gate = ReleaseGate(
+            scan_at=scan_at,
+            scan_sources_ok=scan_sources_ok,
+            scan_age_days=round(age_days, 2) if age_days is not None else None,
+            open_candidates=_open_candidate_view(open_count, scan_view),
+            exploited_open=exploited_open,
+            exploited_vulnerabilities=len(exploited_vuln_ids),
+            exploited_vulnerability_ids=exploited_vuln_ids,
+            accepted_rationale=accepted_rationale.strip(),
+            evidence_id=row.id,
         )
-        state.releases.append(release)
         # The first and only writer of `lifecycle` in this codebase. Placing a
         # product on the market is what moves it, and `risk.staleness` exempts
         # this one transition so it does not demand a re-assessment mid-ship.
@@ -573,7 +681,7 @@ def record_release(
             product_id=product_id,
             subject_type="release",
             subject_id=version,
-            op="record_release",
+            op="place_on_market",
             accountable_user_id=actor_id or None,
             actor_kind="human",
             rationale=(accepted_rationale.strip() or f"Release {version}")[:500],
@@ -679,18 +787,23 @@ def record_release(
 
 
 def list_releases(*, product_id: str, actor_id: str = "") -> dict:
-    """Versions placed on the market, oldest first, with their I(2)(a) position."""
+    """Recorded versions, oldest first, and which of them were placed on market."""
     state = _load(product_id)
     _member(state, actor_id)
 
     items = [
         {
             "version": r.version,
+            # The distinction the whole split exists for, first in the object
+            # rather than inferable from a null date further down.
+            "placed_on_market": r.released_at is not None,
             "released_at": r.released_at.isoformat() if r.released_at else None,
+            "built_at": r.built_at.isoformat() if r.built_at else None,
             "source_ref": r.source_ref,
             "notes": r.notes,
             "recorded_at": r.recorded_at.isoformat() if r.recorded_at else None,
             "recorded_by": r.recorded_by,
+            "placed_by": r.placed_by,
             "i2a": {
                 "scan_at": r.gate.scan_at.isoformat() if r.gate.scan_at else None,
                 "scan_sources_ok": r.gate.scan_sources_ok,
@@ -710,10 +823,15 @@ def list_releases(*, product_id: str, actor_id: str = "") -> dict:
         }
         for r in state.releases
     ]
-    return {
+    placed = [i for i in items if i["placed_on_market"]]
+    out = {
         "ok": True,
         "count": len(items),
-        "current": items[-1]["version"] if items else None,
+        "placed_count": len(placed),
+        # "current" means the current *placed* version — what people have.
+        # Annex I attaches to the product as placed on the market, and a build
+        # in flight is not what anyone is running.
+        "current": placed[-1]["version"] if placed else None,
         "releases": items,
         "note": (
             "Ordered by when they were recorded, not by version string. "
@@ -723,12 +841,23 @@ def list_releases(*, product_id: str, actor_id: str = "") -> dict:
         )
         if items
         else (
-            "No releases recorded. Until there is one, evidence has no version "
-            "to be current against and reports as unversioned rather than "
-            "stale."
+            "No versions recorded. record_build(version=...) records one — it "
+            "is free and asserts nothing about the market. Until a version is "
+            "placed on the market, evidence has nothing to be current against "
+            "and reports as unversioned rather than stale."
         ),
     }
+    if items and not placed:
+        out["nothing_placed"] = (
+            f"{len(items)} version(s) recorded, none placed on the market. No "
+            "Annex I Pt I(2)(a) determination has been made, no Article 13(13) "
+            "retention clock has started, and the 13(8) support period has no "
+            "anchor. place_on_market(version=...) is the call that does all "
+            "three."
+        )
+    return out
 
 
 _dispatch.register_read("list_releases", list_releases)
-_dispatch.register_mutating("record_release", record_release)
+_dispatch.register_mutating("record_build", record_build)
+_dispatch.register_mutating("place_on_market", place_on_market)

@@ -37,6 +37,21 @@ def _call(name, product_id, actor_id, **args):
     return dispatcher.dispatch(name, product_id, actor_id, args)
 
 
+def _place(product, owner, version="1.0.0", **kw):
+    """`record_build` then `place_on_market` — the two acts the one call did.
+
+    Split on 2026-08-10. Recording that a build exists and declaring it placed
+    on the market assert different things, and only the second is a legal
+    claim; tests that mean "this version shipped" have to say both.
+    """
+    build_kw = {
+        k: kw.pop(k) for k in ("source_ref", "notes", "built_at") if k in kw
+    }
+    built = _call("record_build", product, owner, version=version, **build_kw)
+    assert built["ok"] is True, built
+    return _call("place_on_market", product, owner, version=version, **kw)
+
+
 @pytest.fixture
 def owner():
     uid = str(uuid.uuid4())
@@ -256,8 +271,7 @@ def test_the_start_defaults_to_the_first_release(product, owner, monkeypatch):
         source_ref="git:a1",
     )
     assert _call("scan_advisories", product, owner)["scanned"] is True
-    assert _call(
-        "record_release",
+    assert _place(
         product,
         owner,
         version="1.0.0",
@@ -285,7 +299,10 @@ def test_without_a_release_or_a_start_it_says_which_to_supply(product, owner):
         rationale="Five years.",
     )
     assert out["ok"] is False
-    assert "record_release() first, or pass start=" in out["error"]
+    assert "place_on_market(version=...) first" in out["error"]
+    # And it says why a recorded build is not enough, since that is the
+    # distinction someone hitting this error has just got wrong.
+    assert "A recorded build is not a placing" in out["error"]
 
 
 # ---- status surfaces it unasked ------------------------------------------------------

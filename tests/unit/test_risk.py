@@ -213,7 +213,7 @@ def test_a_lifecycle_move_makes_the_assessment_stale():
 def test_reaching_the_market_does_not_make_the_assessment_stale():
     """The one exempt transition.
 
-    `record_release` sets `placed_on_market`, and it is the only writer of
+    `place_on_market` sets `placed_on_market`, and it is the only writer of
     `lifecycle` in the codebase. Without the exemption, recording a first
     release would demand a re-confirm at the moment someone is shipping — for a
     move that was always the destination. The assessment was made *in order to*

@@ -52,7 +52,7 @@ The MCP endpoint is `POST /mcp/me/mcp` with `Authorization: Bearer cra_…`, or
 
 ## What it does
 
-43 tools. Grouped by the obligation they serve:
+44 tools. Grouped by the obligation they serve:
 
 - **Scope** — `classify_product` against the Annex III/IV class lists,
   `get_applicable_csirt`, `record_sbom`, `set_support_period` with the Article
@@ -68,7 +68,8 @@ The MCP endpoint is `POST /mcp/me/mcp` with `Authorization: Bearer cra_…`, or
 - **Reporting** — `record_vulnerability` → `update_vulnerability` →
   `report_incident` → `get_reporting_deadlines` → `record_report_submission`,
   with `draft_report` rendering ENISA's own field layout
-- **Conformity** — `record_release`, `assemble_technical_file`,
+- **Conformity** — `record_build` (free), `place_on_market`,
+  `assemble_technical_file`,
   `generate_declaration_of_conformity`, `sign_off`
 
 The regulation itself is versioned data in

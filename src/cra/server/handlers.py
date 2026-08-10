@@ -201,9 +201,12 @@ def get_compliance_status(*, product_id: str, actor_id: str = "") -> dict:
     # Membership gate. This read returns unreported exploited-vulnerability
     # details, which are among the most sensitive data a vendor holds — a
     # product id is not a capability. `actor_id` is empty only on the legacy
-    # static party mounts, where there is no user to check.
-    if actor_id and actor_id not in s.members:
-        raise NotFound(f"no product {product_id!r}")
+    # static party mounts, where there is no user to check, which `_member`
+    # handles. Via the shared helper rather than inline: one idiom is what
+    # lets `test_membership_sweep` find a handler that forgot.
+    from cra.server.scoping import _member  # local: scoping imports this
+
+    _member(s, actor_id)
     now = _now()
     reqs = s.requirements
     open_obligations = reporting.open_obligation_views(product_id)

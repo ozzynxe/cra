@@ -532,7 +532,7 @@ annex_i:
       clean KEV result does not answer this requirement on its own.
 
       This requirement is about a *moment* — being made available on the market
-      — so `record_release` is where it is answered. Recording a version checks
+      — so `place_on_market` is where it is answered. Placing a version checks
       that a scan actually ran, that it reached its feeds, that it is recent,
       and that no candidate is still unresolved, then freezes the result as
       evidence tied to that version. It refuses when the record cannot support
@@ -555,7 +555,7 @@ annex_i:
       it: it cannot dismiss anything, and it is never on its own a reason to.
     tools:
       [record_sbom, scan_advisories, confirm_advisory, dismiss_advisory,
-       record_release]
+       record_build, place_on_market]
   annex_i.i.2.b: {support: evidence, tools: []}
   annex_i.i.2.c: {support: evidence, tools: []}
   annex_i.i.2.d: {support: evidence, tools: []}

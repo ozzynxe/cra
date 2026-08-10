@@ -296,25 +296,48 @@ class ReleaseGate(_Base):
 
 
 class Release(_Base):
-    """A version placed on the market, and what was known when it was.
+    """A version of the product — and, if it was, when it was placed on market.
 
     The object the rest of the versioning work hangs off. Annex I attaches to
     "the product with digital elements *as placed on the market*", so evidence
     is a claim about a specific one of these — see `annex.evidence_currency`.
 
+    **`released_at` is what makes this a placing on the market, and it is
+    optional.** Recording that a version exists and declaring it placed on the
+    market used to be one act, welded together in `record_release`, and there
+    was no way to do the first without the second. That mattered in two
+    directions. Placing on the market starts the Article 13(13) retention
+    clock, anchors the 13(8) support period and freezes the Annex I Pt I(2)(a)
+    determination — so it is a legal claim, and someone who only wanted to
+    record a build had to make it. And it is the paid boundary: free until you
+    place it on the market. A model that could not express an unplaced version
+    could not express the plan either.
+
+    So a row with `released_at is None` is a build: recorded, evidence can hang
+    off it, nothing has been declared. `place_on_market` fills in
+    `released_at`, `placed_by` and `gate`.
+
     `version` is the manufacturer's own identifier and is not parsed or
     ordered. Semver, a date, a build number and an internal codename are all
     legitimate, and a tool that sorted them would eventually sort one wrongly
-    and call the wrong release current. Order comes from `released_at`.
+    and call the wrong release current. Order is arrival order.
     """
 
     version: str
-    released_at: datetime
+    # None until `place_on_market`. Every row written before the split carries
+    # a value, so existing releases stay placed without a migration.
+    released_at: Optional[datetime] = None
+    built_at: Optional[datetime] = None
     source_ref: str = ""
     notes: str = ""
     recorded_at: datetime
     recorded_by: str = ""
+    placed_by: str = ""
     gate: ReleaseGate = Field(default_factory=ReleaseGate)
+
+    @property
+    def placed_on_market(self) -> bool:
+        return self.released_at is not None
 
 
 class SupportPeriod(_Base):

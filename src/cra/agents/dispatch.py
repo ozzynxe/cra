@@ -62,8 +62,11 @@ _REQUIRES: dict[str, str] = {
     "attach_evidence": entitlements.EVIDENCE,
     # Closing a legal statement.
     # Placing on the market is a legal act and freezes a determination,
-    # so it sits with the other things that close a statement.
-    "record_release": entitlements.CONFORMITY,
+    # so it sits with the other things that close a statement. Recording
+    # that a build exists is not, and is in `_FREE` — the split is what
+    # lets "free until you place it on the market" be said in the domain
+    # model rather than only in the price list.
+    "place_on_market": entitlements.CONFORMITY,
     # The Article 13(8) determination fills an Annex VII slot and starts
     # the end-of-support alerts, so it is the record rather than the
     # diagnosis. A free account still *sees* that it owes one — that is
@@ -114,6 +117,7 @@ _FREE: set[str] = {
     "list_user_information",
     "list_evidence",
     "list_releases",
+    "record_build",
     "assemble_technical_file",
     "get_conformity_status",
     # Necessarily free: a paywall you cannot reach from behind the paywall is

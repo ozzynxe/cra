@@ -97,7 +97,7 @@ def _now() -> datetime:
 
 # The one lifecycle move that does not stale an assessment.
 #
-# `record_release` sets `placed_on_market`, which is the first time anything in
+# `place_on_market` sets `placed_on_market`, which is the first time anything in
 # this codebase writes `lifecycle` at all. Without this exemption, recording a
 # first release would immediately report the assessment as no longer describing
 # the product and demand a re-confirm — at the precise moment someone is

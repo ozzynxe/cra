@@ -48,6 +48,21 @@ def _call(name, product_id, actor_id, **args):
     return dispatcher.dispatch(name, product_id, actor_id, args)
 
 
+def _place(product, owner, version="1.0.0", **kw):
+    """`record_build` then `place_on_market` — the two acts the one call did.
+
+    Split on 2026-08-10. Recording that a build exists and declaring it placed
+    on the market assert different things, and only the second is a legal
+    claim; tests that mean "this version shipped" have to say both.
+    """
+    build_kw = {
+        k: kw.pop(k) for k in ("source_ref", "notes", "built_at") if k in kw
+    }
+    built = _call("record_build", product, owner, version=version, **build_kw)
+    assert built["ok"] is True, built
+    return _call("place_on_market", product, owner, version=version, **kw)
+
+
 @pytest.fixture
 def owner():
     uid = str(uuid.uuid4())
@@ -188,7 +203,7 @@ def shipped(product, owner, monkeypatch):
     monkeypatch.setattr(advisories, "epss_scores", lambda ids: {})
     _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:seed")
     _call("scan_advisories", product, owner)
-    assert _call("record_release", product, owner, version="1.0.0")["ok"] is True
+    assert _place( product, owner, version="1.0.0")["ok"] is True
     return product
 
 
@@ -199,7 +214,7 @@ def test_an_sbom_ties_to_the_current_release_by_default(shipped, owner):
 
 def test_a_version_naming_a_real_release_wins_over_the_default(shipped, owner):
     _call("scan_advisories", shipped, owner)
-    _call("record_release", shipped, owner, version="2.0.0")
+    _place( shipped, owner, version="2.0.0")
     out = _call(
         "record_sbom", shipped, owner, sbom=SBOM, source_ref="git:ddd", version="1.0.0"
     )
@@ -218,7 +233,7 @@ def test_a_version_that_is_not_yet_a_release_is_kept_as_given(shipped, owner):
     it is a release, is the ordinary order of work. The fallback also made the
     Annex I Pt I(2)(a) gate unclearable: releasing 2.0.0 was refused because the
     scan covered 1.0.0, and re-recording the SBOM as 2.0.0 filed it as 1.0.0
-    again. `record_release` stores versions verbatim and never parses them, so
+    again. `record_build` stores versions verbatim and never parses them, so
     there is nothing to validate a label against in any case.
     """
     out = _call(

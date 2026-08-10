@@ -104,16 +104,45 @@ def _view(item, *, verbose: bool = False, currency: Optional[dict] = None) -> di
     return out
 
 
+def placed_releases(state) -> list:
+    """Versions actually placed on the market, in arrival order.
+
+    A recorded build is not one of these. `released_at` is None until
+    `place_on_market` runs, and everything that turns on the *legal* event —
+    Article 13(13) retention, the 13(8) support period anchor, evidence
+    currency — has to read this rather than the whole list.
+    """
+    return [r for r in getattr(state, "releases", None) or [] if r.released_at]
+
+
 def latest_release(state):
-    """The release the product is currently on, or None.
+    """The release the product is currently on, or None. **Placed only.**
 
     The last entry, not the highest — `version` is the manufacturer's own
     string and is not orderable. Semver, a date, a build number and an internal
     codename are all legitimate, and a tool that sorted them would eventually
     sort one wrongly and declare the wrong release current. Arrival order is
     the only sequence that is always true.
+
+    Deliberately blind to unplaced builds. Annex I attaches to the product *as
+    placed on the market*, so evidence measured against a build nobody shipped
+    would report as stale evidence that is perfectly current for the product
+    people actually have. Use `latest_build` where the question is about the
+    artefact rather than the legal event.
     """
-    return state.releases[-1] if getattr(state, "releases", None) else None
+    placed = placed_releases(state)
+    return placed[-1] if placed else None
+
+
+def latest_build(state):
+    """The most recently recorded version, placed on the market or not.
+
+    For questions about the artefact — which build an SBOM describes, which
+    version a piece of evidence most likely concerns. Never for a determination
+    that turns on placing on the market.
+    """
+    rows = getattr(state, "releases", None)
+    return rows[-1] if rows else None
 
 
 # The three answers to "is this evidence about what we ship now".
@@ -586,7 +615,7 @@ def attach_evidence(
         check_product_total(db, product_id, size)
         release = latest_release(state)
         # Resolved inside the lock so the default cannot be read from a release
-        # list that a concurrent `record_release` has already moved on from.
+        # list that a concurrent `record_build` has already moved on from.
         version = applies_to_version or (release.version if release else None)
         if applies_to_version and release is not None:
             known = {r.version for r in state.releases}
@@ -595,7 +624,7 @@ def attach_evidence(
                     f"no release {applies_to_version!r} on this product — "
                     f"recorded releases are {sorted(known)}. Evidence pointing "
                     "at a release that does not exist would look versioned and "
-                    "be unverifiable. record_release() first, or omit the "
+                    "be unverifiable. record_build() first, or omit the "
                     "argument to tie it to the current release."
                 )
         row = Evidence(
@@ -681,7 +710,7 @@ def attach_evidence(
         out["version_note"] = (
             "Recorded without a release, because none has been recorded for "
             "this product yet. It will show as unversioned rather than stale — "
-            "record_release() and re-attach to make the claim specific."
+            "record_build() and re-attach to make the claim specific."
         )
     return out
 

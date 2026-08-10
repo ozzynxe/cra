@@ -28,7 +28,7 @@ document having changed.
 `assemble_technical_file(finalize=True)` has always refused an incomplete file
 because freezing one "produces a document that looks finished". The declaration
 carries the legal weight — it is what CE marking rests on — so it gets the same
-rule and no override. `record_release` has an override because shipping with
+rule and no override. `place_on_market` has an override because shipping with
 something outstanding is a decision a manufacturer may take; declaring
 conformity over a blank Annex V field is not that kind of decision.
 
@@ -68,7 +68,13 @@ from cra.regulation import product_class as class_spec
 from cra.schemas import ConformityClaim
 from cra.schemas.enums import Applicability, EvidenceKind, RequirementStatus, Role
 from cra.server import audit, entitlements, risk, statutory_export, store_backend
-from cra.server.annex import _find, _is_gap, evidence_currency, latest_release
+from cra.server.annex import (
+    _find,
+    _is_gap,
+    evidence_currency,
+    latest_release,
+    placed_releases,
+)
 from cra.server.errors import InvalidState, NotFound
 from cra.server.scoping import (
     _ENUM_TO_CLASS,
@@ -107,7 +113,10 @@ def retention_status(state) -> dict:
     the latest placing is the one that binds longest.
     """
     rule = technical_file_retention()
-    releases = sorted(state.releases, key=lambda r: r.released_at)
+    # Placed only. A recorded build starts no Article 13(13) clock — the
+    # paragraph runs from placing on the market, and `record_build` is
+    # deliberately not that.
+    releases = sorted(placed_releases(state), key=lambda r: r.released_at)
     placed = releases[-1].released_at if releases else None
     support_end = state.support_period.end
 
@@ -678,7 +687,7 @@ def assemble_technical_file(
                 "product *as placed on the market*, so evidence here evidences "
                 "work rather than a shipped version, and `evidence_currency` "
                 "has no release to measure against — which is why nothing is "
-                "reported as stale or unversioned. record_release() when you "
+                "reported as stale or unversioned. record_build() when you cut a "
                 "ship, and the file will say which build it describes."
             )
         ),
@@ -1250,7 +1259,7 @@ def generate_simplified_declaration(
             sha256=digest,
             source_ref="cra-mcp generate_simplified_declaration",
             applies_to_version=(
-                state.releases[-1].version if state.releases else None
+                latest_release(state).version if latest_release(state) else None
             ),
             added_by_user_id=actor_id or None,
         )
@@ -1369,7 +1378,7 @@ def sign_off(
     # carries the legal weight — it is what CE marking rests on — so it has the
     # stronger claim to the same rule, not a weaker one.
     #
-    # No override. `record_release` has one because shipping with something
+    # No override. `place_on_market` has one because shipping with something
     # outstanding is a decision a manufacturer is entitled to make; declaring
     # conformity on a document with a mandatory field blank is not the same kind
     # of act, and Annex V lists what a declaration contains rather than what it
@@ -1620,7 +1629,7 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
             "requirements": unbased,
         })
 
-    if not state.releases:
+    if not placed_releases(state):
         qualifications.append({
             "about": "evidence",
             "detail": (

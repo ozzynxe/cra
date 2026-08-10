@@ -5,7 +5,7 @@ requirement history — for a product that is never released. The answer that
 avoids keeping everything forever on the chance it matters later is to check at
 the transition: placing on the market is the single, code-controlled moment
 working state becomes the record an authority may ask for, and it is where
-`record_release` can insist the substance is present.
+`place_on_market` can insist the substance is present.
 
 These blockers are therefore not about known vulnerabilities — the four scan
 blockers already cover Annex I Pt I(2)(a). They are about the file the release

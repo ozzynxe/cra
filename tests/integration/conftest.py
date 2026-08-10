@@ -1,6 +1,6 @@
 """Shared setup for tests that need a product it is legitimate to release.
 
-`record_release` gates on the record being there, not only on the advisory
+`place_on_market` gates on the record being there, not only on the advisory
 scan: no confirmed Article 13(2) assessment, a stale one, missing 13(3)
 statements, or unsettled Annex I requirements all block it. That gate is the
 reason the retention design does not have to keep working state indefinitely

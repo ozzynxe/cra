@@ -49,6 +49,21 @@ def _call(name, product_id, actor_id, **args):
     return dispatcher.dispatch(name, product_id, actor_id, args)
 
 
+def _place(product, owner, version="1.0.0", **kw):
+    """`record_build` then `place_on_market` — the two acts the one call did.
+
+    Split on 2026-08-10. Recording that a build exists and declaring it placed
+    on the market assert different things, and only the second is a legal
+    claim; tests that mean "this version shipped" have to say both.
+    """
+    build_kw = {
+        k: kw.pop(k) for k in ("source_ref", "notes", "built_at") if k in kw
+    }
+    built = _call("record_build", product, owner, version=version, **build_kw)
+    assert built["ok"] is True, built
+    return _call("place_on_market", product, owner, version=version, **kw)
+
+
 @pytest.fixture
 def owner():
     uid = str(uuid.uuid4())
@@ -101,7 +116,7 @@ def clean_feeds(monkeypatch):
 
 def _ship(product, owner, version):
     _call("scan_advisories", product, owner)
-    out = _call("record_release", product, owner, version=version)
+    out = _place( product, owner, version=version)
     assert out["ok"] is True, out
     return out
 
@@ -285,7 +300,7 @@ def test_the_version_reaches_the_audit_trail(product, owner):
 
 
 def test_the_i2a_determination_lands_on_the_requirement_it_is_about(product, owner):
-    """`record_release` is itself an evidence writer, and its artefact has to
+    """`place_on_market` is itself an evidence writer, and its artefact has to
     play by the same rules as any other."""
     _ship(product, owner, "1.0.0")
     listed = _call("list_evidence", product, owner, subject_ref="requirement:annex_i.i.2.a")
@@ -346,7 +361,7 @@ def test_a_file_with_no_release_says_nothing_is_tied_to_a_build(product, owner):
     tf = _call("assemble_technical_file", product, owner)
     assert tf["release"] is None
     assert "nothing in this file is tied to a build" in tf["describes_no_release"]
-    assert "record_release()" in tf["describes_no_release"]
+    assert "record_build()" in tf["describes_no_release"]
 
 
 def test_once_a_release_exists_that_statement_is_gone(product, owner):

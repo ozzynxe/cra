@@ -1119,16 +1119,57 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         """
         return dispatcher.dispatch("list_releases", _pid(product_id), actor_id, {})
 
-    @mcp.tool(annotations=_annot("Record a release", _WRITE_LEGAL))
-    def record_release(
+    @mcp.tool(annotations=_annot("Record a build", _WRITE_ADDITIVE))
+    def record_build(
+        version: str,
+        product_id: Optional[str] = None,
+        built_at: Optional[str] = None,
+        source_ref: str = "",
+        notes: str = "",
+    ) -> dict:
+        """Record that a version of the product exists. Claims nothing about the market.
+
+        Use this whenever a build is worth naming — a release candidate, an
+        internal cut, something shipped to one customer under test. It is free,
+        it gates on nothing and it changes no lifecycle. What it buys is an
+        anchor: evidence can be attached against this version, so
+        `attach_evidence(applies_to_version=...)` and the technical file's
+        currency check have something real to measure against.
+
+        **It is deliberately not a legal act.** Placing on the market starts the
+        Article 13(13) retention clock, anchors the 13(8) support period and
+        freezes the Annex I Pt I(2)(a) determination — none of which follows
+        from a build existing. `place_on_market` is the call that does that, and
+        it is the one that can refuse.
+
+        Use `version` exactly as you build it — stored verbatim, never parsed.
+        """
+        return dispatcher.dispatch(
+            "record_build",
+            _pid(product_id),
+            actor_id,
+            {
+                "version": version,
+                "built_at": built_at,
+                "source_ref": source_ref,
+                "notes": notes,
+            },
+        )
+
+    @mcp.tool(annotations=_annot("Place a version on the market", _WRITE_LEGAL))
+    def place_on_market(
         version: str,
         product_id: Optional[str] = None,
         released_at: Optional[str] = None,
-        source_ref: str = "",
-        notes: str = "",
         accepted_rationale: str = "",
     ) -> dict:
-        """Record a version as placed on the market, freezing its I(2)(a) position.
+        """Declare a recorded version placed on the market, freezing its I(2)(a) position.
+
+        **Record the build first** with `record_build(version=...)`; this call
+        works on a version that already exists. The two are separate because
+        they assert different things: one says a build exists, this one makes a
+        legal claim about the EU market that starts the Article 13(13) retention
+        clock and anchors the 13(8) support period.
 
         Annex I Pt I(2)(a) bars placing a product on the market with a known
         exploitable vulnerability, and that is a claim about a *moment*. This is
@@ -1169,14 +1210,12 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         parsed.
         """
         return dispatcher.dispatch(
-            "record_release",
+            "place_on_market",
             _pid(product_id),
             actor_id,
             {
                 "version": version,
                 "released_at": released_at,
-                "source_ref": source_ref,
-                "notes": notes,
                 "accepted_rationale": accepted_rationale,
             },
         )

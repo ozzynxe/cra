@@ -2,7 +2,7 @@
 
 Annex I Pt I(2)(a) bars *making available on the market* a product with known
 exploitable vulnerabilities. That is a claim about an instant, and this is the
-instant: `record_release` weighs the advisory picture, freezes the answer as
+instant: `place_on_market` weighs the advisory picture, freezes the answer as
 evidence tied to that version, and makes it the release everything else is
 measured against.
 
@@ -126,7 +126,15 @@ def dirty_scan(monkeypatch, clean_scan):
 
 
 def _release(product, owner, version="1.0.0", **kw):
-    return _call("record_release", product, owner, version=version, **kw)
+    build_kw = {
+        k: kw.pop(k) for k in ("source_ref", "notes", "built_at") if k in kw
+    }
+    built = _call("record_build", product, owner, version=version, **build_kw)
+    # Tolerated, because several tests place the same version twice on purpose
+    # — the refusal being tested is `place_on_market`'s, and the build already
+    # existing is the precondition for reaching it.
+    assert built["ok"] is True or "already recorded" in built.get("error", ""), built
+    return _call("place_on_market", product, owner, version=version, **kw)
 
 
 def _evidence(product, subject=f"requirement:{I2A}"):
@@ -249,7 +257,7 @@ def test_the_override_is_written_into_the_determination_and_the_trail(
     with session_scope() as s:
         ev = (
             s.query(AuditEvent)
-            .filter(AuditEvent.product_id == product, AuditEvent.op == "record_release")
+            .filter(AuditEvent.product_id == product, AuditEvent.op == "place_on_market")
             .one()
         )
         assert ev.payload["blockers_accepted"] == ["open_candidates"]
@@ -293,11 +301,66 @@ def test_it_says_a_shipped_release_does_not_become_non_conformant_later(
 
 
 def test_a_version_cannot_be_recorded_twice(product, owner, clean_scan):
+    """Two refusals now, because the act was split into two.
+
+    A version is recorded once — it is the anchor evidence hangs off. And it is
+    placed on the market once: I(2)(a) is a claim about an instant, and remaking
+    it later would silently move the instant the frozen determination describes.
+    """
     _call("scan_advisories", product, owner)
     _release(product, owner, version="1.0.0")
-    again = _release(product, owner, version="1.0.0")
+
+    again = _call("record_build", product, owner, version="1.0.0")
     assert again["ok"] is False
     assert "already recorded" in again["error"]
+    # And it says what to do with a version that exists but has not shipped.
+    assert "place_on_market" in again["error"]
+
+    replaced = _call("place_on_market", product, owner, version="1.0.0")
+    assert replaced["ok"] is False
+    assert "already placed on the market" in replaced["error"]
+
+
+def test_placing_a_version_that_was_never_built_is_refused(product, owner, clean_scan):
+    """The split's own precondition. Placing on the market is a statement about
+    a build that exists, so the error names the free call that records one
+    rather than leaving the caller to guess the order."""
+    _call("scan_advisories", product, owner)
+    out = _call("place_on_market", product, owner, version="9.9.9")
+    assert out["ok"] is False
+    assert "no version '9.9.9' is recorded" in out["error"]
+    assert "record_build(version='9.9.9')" in out["error"]
+    assert "free" in out["error"]
+
+
+def test_a_recorded_build_asserts_nothing_about_the_market(product, owner, clean_scan):
+    """Issue #44. Recording that a version exists and declaring it placed on the
+    market used to be one call, so someone who wanted the first had to make the
+    second — and the second starts the Article 13(13) retention clock, anchors
+    the 13(8) support period and freezes an Annex I determination.
+
+    An end-to-end run took that door, overriding the gate on a rationale saying
+    the artefact was *not* being placed on the market. The record then held a
+    `placed_on_market` lifecycle beside a written statement that it had not
+    happened.
+    """
+    before = _call("get_compliance_status", product, owner)["lifecycle"]
+    out = _call("record_build", product, owner, version="1.0.0-rc1")
+    assert out["ok"] is True
+    assert out["placed_on_market"] is False
+
+    after = _call("get_compliance_status", product, owner)
+    assert after["lifecycle"] == before, "recording a build moved the lifecycle"
+
+    # No I(2)(a) determination was made, so no evidence was frozen against it.
+    assert _evidence(product) == []
+
+    listed = _call("list_releases", product, owner)
+    assert listed["count"] == 1
+    assert listed["placed_count"] == 0
+    assert listed["current"] is None, "an unplaced build is not what anyone runs"
+    assert "no Annex I Pt I(2)(a) determination" in listed["nothing_placed"].lower() or \
+        "Annex I Pt I(2)(a)" in listed["nothing_placed"]
 
 
 def test_reaching_the_market_does_not_stale_the_risk_assessment(

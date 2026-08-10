@@ -110,13 +110,30 @@ def test_free_cannot_reach_the_ten_year_archive():
     commit this service to a decade. Swept rather than spot-checked: a new tool
     that freezes something and forgets this fails here.
     """
-    writers = {
-        "record_release",
-        "assemble_technical_file",  # only with finalize=True; gated in-handler
-        "generate_declaration_of_conformity",
-        "generate_simplified_declaration",
-        "sign_off",
-    }
+    # Found by reading the handlers, not by listing them here. A hand-kept list
+    # is exactly what this invariant cannot rely on: the tool that breaks it
+    # will be one nobody thought to add. `record_build` was added to the module
+    # that contains an archive writer and this is what proves it does not reach
+    # one.
+    import inspect
+
+    # Registration is an import side-effect, so a sweep that does not ask for
+    # the handlers iterates an empty dict and passes. Two tests in this file
+    # already called this; the ones that did not were quietly vacuous when
+    # the file was run on its own.
+    dispatch._ensure_handlers_loaded()
+
+    writers = set()
+    for name, fn in {**dispatch._READ, **dispatch._MUTATING}.items():
+        try:
+            src = inspect.getsource(fn)
+        except (OSError, TypeError):  # pragma: no cover — builtins, partials
+            continue
+        if "statutory_export.record(" in src:
+            writers.add(name)
+
+    assert writers, "found no archive writers at all — has the sweep stopped working?"
+
     # `assemble_technical_file` is in _FREE because the gap report is free; its
     # freeze path checks CONFORMITY inside the handler instead.
     for tool in writers - {"assemble_technical_file"}:
@@ -125,6 +142,24 @@ def test_free_cannot_reach_the_ten_year_archive():
             "CONFORMITY"
         )
     assert not entitlements.FREE.covers(entitlements.CONFORMITY)
+
+
+def test_recording_a_build_is_free_and_placing_on_the_market_is_not():
+    """Issue #44's real subject, and the plan boundary said in the domain model.
+
+    "Free until you place it on the market" was a billing rule the model could
+    not express: `record_release` welded recording that a version exists to
+    declaring it placed on the market, so a free account could not name a build
+    at all, and anyone who wanted to had to make a legal claim to do it.
+
+    Splitting the acts puts the paid line exactly where the sentence says it is.
+    """
+    dispatch._ensure_handlers_loaded()
+    assert "record_build" in dispatch._FREE
+    assert dispatch._REQUIRES.get("place_on_market") == entitlements.CONFORMITY
+    assert entitlements.FREE.covers(entitlements.EVIDENCE), (
+        "recording a build is only worth having free if evidence can hang off it"
+    )
 
 
 def test_paid_plans_differ_only_in_limits():

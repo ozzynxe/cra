@@ -48,6 +48,21 @@ def _call(name, product_id, actor_id, **args):
     return dispatcher.dispatch(name, product_id, actor_id, args)
 
 
+def _place(product, owner, version="1.0.0", **kw):
+    """`record_build` then `place_on_market` — the two acts the one call did.
+
+    Split on 2026-08-10. Recording that a build exists and declaring it placed
+    on the market assert different things, and only the second is a legal
+    claim; tests that mean "this version shipped" have to say both.
+    """
+    build_kw = {
+        k: kw.pop(k) for k in ("source_ref", "notes", "built_at") if k in kw
+    }
+    built = _call("record_build", product, owner, version=version, **build_kw)
+    assert built["ok"] is True, built
+    return _call("place_on_market", product, owner, version=version, **kw)
+
+
 @pytest.fixture
 def owner():
     uid = str(uuid.uuid4())
@@ -89,7 +104,7 @@ def test_a_product_with_nothing_frozen_exports_nothing():
 
 def test_recording_a_release_registers_it(product, owner):
     _call("scan_advisories", product, owner)
-    out = _call("record_release", product, owner, version="1.0.0")
+    out = _place( product, owner, version="1.0.0")
     assert out["ok"] is True, out
     rows = _exports(product, statutory_export.RELEASE)
     assert len(rows) == 1
@@ -99,7 +114,7 @@ def test_recording_a_release_registers_it(product, owner):
 
 def test_freezing_the_technical_file_registers_it(product, owner, make_file_freezable):
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
     make_file_freezable(_call, product, owner)
     out = _call("assemble_technical_file", product, owner, finalize=True)
     assert out["ok"] is True, out
@@ -112,7 +127,7 @@ def test_re_freezing_unchanged_content_does_not_duplicate(product, owner, make_f
     """Keyed by content hash. A retry, or a re-freeze that changed nothing,
     must not fan out into a second immutable object."""
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
     make_file_freezable(_call, product, owner)
     _call("assemble_technical_file", product, owner, finalize=True)
     _call("assemble_technical_file", product, owner, finalize=True)
@@ -122,7 +137,7 @@ def test_re_freezing_unchanged_content_does_not_duplicate(product, owner, make_f
 def test_the_export_carries_its_own_retention_date(product, owner):
     """Per object, from Article 13(13), rather than a blanket 3,660 days."""
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
     rows = _exports(product, statutory_export.RELEASE)
     assert rows[0].retain_until.year >= datetime.now(timezone.utc).year + 9
 
@@ -131,7 +146,7 @@ def test_an_artefact_and_its_export_row_commit_together(product, owner, make_fil
     """The guarantee. If registering the export fails, the freeze fails too —
     a frozen file with no durable copy is the state this exists to prevent."""
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
     make_file_freezable(_call, product, owner)
 
     def boom(*a, **kw):
@@ -158,7 +173,7 @@ def test_without_a_bucket_the_intent_is_still_recorded(product, owner, monkeypat
     monkeypatch.delenv("CRA_STATUTORY_BUCKET", raising=False)
     assert statutory_export.enabled() is False
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
     assert len(_exports(product, statutory_export.RELEASE)) == 1
     assert statutory_export.flush_pending() == {
         "enabled": False,
@@ -170,7 +185,7 @@ def test_without_a_bucket_the_intent_is_still_recorded(product, owner, monkeypat
 def test_flush_uploads_pending_rows_and_marks_them(product, owner, monkeypatch):
     monkeypatch.setenv("CRA_STATUTORY_BUCKET", "test-bucket")
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
 
     put = []
 
@@ -203,7 +218,7 @@ def test_an_upload_failure_is_recorded_rather_than_swallowed(product, owner, mon
     success — the one outcome this product refuses everywhere."""
     monkeypatch.setenv("CRA_STATUTORY_BUCKET", "test-bucket")
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
 
     class _Client:
         def put_object(self, **kw):
@@ -224,7 +239,7 @@ def test_an_upload_failure_is_recorded_rather_than_swallowed(product, owner, mon
 def test_a_failed_export_is_retried_on_the_next_flush(product, owner, monkeypatch):
     monkeypatch.setenv("CRA_STATUTORY_BUCKET", "test-bucket")
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
 
     state = {"fail": True}
 
@@ -253,7 +268,7 @@ def test_a_flush_can_be_scoped_to_one_product(product, owner, monkeypatch):
     governance bypass."""
     monkeypatch.setenv("CRA_STATUTORY_BUCKET", "test-bucket")
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
 
     put = []
 
@@ -286,7 +301,7 @@ def test_the_backlog_is_counted_the_same_way_everywhere(product, owner, monkeypa
     """
     monkeypatch.setenv("CRA_STATUTORY_BUCKET", "test-bucket")
     _call("scan_advisories", product, owner)
-    _call("record_release", product, owner, version="1.0.0")
+    _place( product, owner, version="1.0.0")
 
     class _Broken:
         def put_object(self, **kw):

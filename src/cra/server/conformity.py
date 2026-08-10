@@ -1327,12 +1327,30 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
             for a in rows
         ]
 
-    settled = sum(
-        1
+    # `_is_gap`, the same predicate the technical file uses, rather than a
+    # second definition of "settled" beside it.
+    #
+    # The two disagreed, and the headline was the optimistic one. This counted a
+    # requirement ruled out with no justification as settled, and one verified
+    # against a build nobody ships as settled; the file counted neither. Two
+    # tools, one product, one moment, two answers — and this is the tool whose
+    # description positions it as where you stand, so it is the one an agent
+    # quotes.
+    #
+    # The denominators differed too and neither said which it was using. Both
+    # are reported now: every requirement on the checklist, and the applicable
+    # subset, so a number that moves between sessions can be accounted for.
+    with session_scope() as db:
+        by_subject = _evidence_by_subject(db, product_id)
+    currency = evidence_currency(state, by_subject)
+
+    gaps = [i for i in state.requirements if _is_gap(i, currency.get(i.req_id))]
+    applicable = [
+        i
         for i in state.requirements
-        if i.applicability == Applicability.NOT_APPLICABLE
-        or i.status in (RequirementStatus.IMPLEMENTED, RequirementStatus.VERIFIED)
-    )
+        if i.applicability != Applicability.NOT_APPLICABLE
+    ]
+    settled = len(state.requirements) - len(gaps)
 
     # Everything above this line is a green tick, and an agent asked "where do
     # we stand" composes its answer from green ticks. The disclaimer underneath
@@ -1394,7 +1412,19 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
         "in_scope": state.classification.in_scope,
         "product_class": state.classification.product_class,
         "conformity_route": state.classification.conformity_route,
-        "requirements": {"total": len(state.requirements), "settled": settled},
+        "requirements": {
+            "total": len(state.requirements),
+            "settled": settled,
+            "gaps": [i.req_id for i in gaps],
+            # Named so the two numbers cannot be read as the same thing.
+            "counting": (
+                "`total` is every requirement on the checklist, including those "
+                "never made applicable. `applicable` excludes the ones ruled "
+                "out. `settled` uses the same test as the technical file, so "
+                "these agree with it."
+            ),
+            "applicable": len(applicable),
+        },
         "technical_file": {
             "finalized": bool(state.technical_file_hash),
             "content_hash": state.technical_file_hash,

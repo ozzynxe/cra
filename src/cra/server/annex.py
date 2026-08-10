@@ -407,21 +407,83 @@ def update_requirement(
             rationale=(item.justification or item.implementation_note or "")[:500],
             payload=changed,
         )
-        return state, item
+        # Read inside the lock, with the state the write actually saw. Reaching
+        # for `state` after `mutate` returns is a NameError — it is local to
+        # this closure — and re-loading afterwards would answer from a row that
+        # may have moved.
+        return state, (item, bool(state.risk_assessment and state.risk_assessment.content_hash))
 
-    item = store_backend.mutate(product_id, _apply)
+    item, has_assessment = store_backend.mutate(product_id, _apply)
 
     result = {"ok": True, "requirement": _view(item, verbose=True)}
     if _is_gap(item):
-        result["still_a_gap"] = (
-            "Marked applicable but not yet implemented and verified with "
-            "evidence attached. attach_evidence(subject_ref="
-            f"'requirement:{req_id}', ...) when you have an artifact."
+        result["still_a_gap"] = _gap_reason(item, req_id)
+    # The status can outrun the thing it is supposed to rest on. Said here
+    # rather than refused: the checklist order is the regulation's and this tool
+    # will not pretend a sequencing rule is a validity rule — but a requirement
+    # recorded as verified with no Article 13(2) assessment on file rests on
+    # nothing, and the reply should not read as though it does.
+    if (
+        item.status in (RequirementStatus.IMPLEMENTED, RequirementStatus.VERIFIED)
+        and not has_assessment
+    ):
+        result["rests_on_no_assessment"] = (
+            f"{req_id} is recorded as {item.status}, and there is no confirmed "
+            "Article 13(2) risk assessment on this product. Annex I Part I "
+            "applies *on the basis of* that assessment, so nothing yet "
+            "establishes that this requirement applies at all — the status "
+            "describes work done, not a determination resting on anything. "
+            "start_risk_assessment() and confirm_risk_assessment(); the "
+            "technical file counts this as a gap until then."
         )
     return result
 
 
 # ---- evidence ----------------------------------------------------------------
+
+
+def _gap_reason(item, req_id: str) -> str:
+    """Why *this* requirement is still a gap, from what was actually recorded.
+
+    One canned sentence used to cover every case: "Marked applicable but not yet
+    implemented and verified with evidence attached." It said `applicable` when
+    the applicability was undetermined, and `not yet implemented and verified`
+    when the status just written was `verified`. The substance underneath was
+    right — the technical file counted it as a gap either way — but this is the
+    sentence an agent repeats, and it described a record the product does not
+    hold.
+    """
+    if item.applicability == Applicability.UNDETERMINED:
+        return (
+            f"{req_id} has no applicability recorded, so it counts as "
+            "unconsidered rather than as outstanding work. Set "
+            "applicability='applicable' or 'not_applicable' with a "
+            "justification."
+        )
+    if item.applicability == Applicability.NOT_APPLICABLE:
+        return (
+            f"{req_id} is ruled out with no justification. An auditor reads the "
+            "reason, not the flag, so a bare not_applicable is a hole rather "
+            "than an answer."
+        )
+    if item.status in (RequirementStatus.IMPLEMENTED, RequirementStatus.VERIFIED):
+        if not item.evidence_ids:
+            return (
+                f"{req_id} is recorded as {item.status} with no evidence "
+                "attached. attach_evidence(subject_ref="
+                f"'requirement:{req_id}', ...) with the artefact that shows it."
+            )
+        return (
+            f"{req_id} is recorded as {item.status}, but its evidence covers "
+            "only releases the product has moved past. Annex I attaches to the "
+            "product as placed on the market, so this needs re-evidencing "
+            "against the current release."
+        )
+    return (
+        f"{req_id} is applicable and recorded as {item.status}. It counts as a "
+        "gap until it is implemented and verified with evidence attached — "
+        f"attach_evidence(subject_ref='requirement:{req_id}', ...)."
+    )
 
 
 def _validate_subject(db, product_id: str, state, subject_ref: str) -> None:

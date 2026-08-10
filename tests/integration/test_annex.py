@@ -992,3 +992,90 @@ def test_a_document_that_really_changed_is_still_called_superseded(scoped, owner
     assert status["attestations"][0]["coverage"] == "superseded"
     assert len(status["stale_signatures"]) == 1
     assert status["unverifiable_signatures"] == []
+
+
+# ---- the reply has to describe the record it just wrote ------------------------
+
+
+def test_the_gap_reason_matches_what_was_actually_recorded(scoped, owner):
+    """One canned sentence covered every case: "Marked applicable but not yet
+    implemented and verified with evidence attached."
+
+    It said `applicable` when applicability was undetermined, and `not yet
+    implemented and verified` when the status just written was `verified`. The
+    substance underneath was right — the file counted it as a gap either way —
+    but this is the sentence an agent repeats to its user.
+    """
+    _call("update_requirement", scoped, owner, req_id=REQ, applicability="applicable")
+    out = _call("update_requirement", scoped, owner, req_id=REQ, status="verified")
+    assert "no evidence attached" in out["still_a_gap"]
+    assert "not yet implemented and verified" not in out["still_a_gap"]
+
+
+def test_an_undetermined_requirement_is_not_described_as_applicable(scoped, owner):
+    other = "annex_i.i.2.l"
+    out = _call("update_requirement", scoped, owner, req_id=other,
+                implementation_note="looked at it")
+    assert "no applicability recorded" in out["still_a_gap"]
+    assert "Marked applicable" not in out["still_a_gap"]
+
+
+def test_a_bare_not_applicable_says_the_reason_is_missing(scoped, owner):
+    other = "annex_i.i.2.l"
+    out = _call("update_requirement", scoped, owner, req_id=other,
+                applicability="not_applicable", justification="   ")
+    assert out["ok"] is False or "no justification" in out.get("still_a_gap", "")
+
+
+def test_verified_with_no_assessment_says_it_rests_on_nothing(scoped, owner):
+    """The checklist order is the regulation's: Annex I Part I applies *on the
+    basis of* the Article 13(2) assessment.
+
+    Not refused — this tool reports gaps rather than blocking work, and a
+    sequencing rule is not a validity rule. But the highest status reachable
+    with no assessment on file rests on nothing, and the reply said nothing
+    about that while the technical file counted it as a gap.
+    """
+    out = _call("update_requirement", scoped, owner, req_id=REQ, status="verified")
+    assert out["ok"] is True
+    assert "no confirmed" in out["rests_on_no_assessment"]
+    assert "rests on nothing" in out["rests_on_no_assessment"] or \
+           "establishes that this requirement applies" in out["rests_on_no_assessment"]
+
+
+def test_with_an_assessment_confirmed_that_note_is_gone(scoped, owner):
+    _confirm_assessment(scoped, owner)
+    out = _call("update_requirement", scoped, owner, req_id=REQ, status="verified")
+    assert "rests_on_no_assessment" not in out
+
+
+# ---- one definition of settled -------------------------------------------------
+
+
+def test_the_status_read_and_the_file_agree_on_what_is_settled(scoped, owner):
+    _confirm_assessment(scoped, owner)
+    """Two tools, one product, one moment, two answers — and the headline was
+    the optimistic one.
+
+    `get_conformity_status` counted a requirement ruled out with no
+    justification, and one verified against a build nobody ships, as settled.
+    The technical file counted neither. It is the status read an agent quotes.
+    """
+    status = _call("get_conformity_status", scoped, owner)["requirements"]
+    tf = _call("assemble_technical_file", scoped, owner)
+
+    part_i = next(
+        s for s in tf["slots"] if s.get("requirement_coverage")
+    )["requirement_coverage"]
+    # The file counts one Annex VII slot's part; the status read counts the
+    # whole checklist. What has to agree is which items are gaps.
+    assert set(part_i["gaps"]) <= set(status["gaps"])
+    assert status["settled"] == status["total"] - len(status["gaps"])
+
+
+def test_the_status_read_says_what_it_is_counting(scoped, owner):
+    """The denominators differed and neither response said which it used, so a
+    number moved between sessions for reasons a user could not account for."""
+    req = _call("get_conformity_status", scoped, owner)["requirements"]
+    assert {"total", "settled", "gaps", "applicable", "counting"} <= set(req)
+    assert "never made applicable" in req["counting"]

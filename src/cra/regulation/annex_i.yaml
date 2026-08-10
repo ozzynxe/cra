@@ -1,0 +1,188 @@
+# Annex I to Regulation (EU) 2024/2847 — essential cybersecurity requirements.
+#
+# Part I  — cybersecurity requirements relating to the properties of the product
+# Part II — vulnerability handling requirements (a *process*, not a property)
+#
+# PROVENANCE
+#
+# Reconciled against the published text on 2026-08-06, fetched from the
+# Publications Office as CELEX 32024R2847:
+#
+#   curl -H 'Accept: application/xhtml+xml' -H 'Accept-Language: eng' \
+#     https://publications.europa.eu/resource/celex/32024R2847
+#
+# Use that route rather than eur-lex.europa.eu, which sits behind a bot
+# challenge that returns HTTP 202 with an empty body to any non-browser client
+# — a failure that looks like an empty document rather than a refusal.
+#
+# What reconciliation found: every summary was a faithful paraphrase of a real
+# requirement, and every *id and anchor in Part I was wrong*. The catalogue had
+# (1), (2), then (3)(a)-(l). The regulation has (1), then (2)(a)-(m) under a
+# single chapeau — there is no point (3) in Annex I Part I, and every letter
+# was shifted by one. Since a technical file cites these anchors, the file was
+# citing provisions that do not exist. Fixed here; `scripts/migrate_annex_i_ids.py`
+# carries existing product state across.
+#
+# The summaries remain deliberate paraphrases, not quotations: `list_requirements`
+# and everything built on this file must present them as a working checklist
+# beside a link to the authoritative text. `provenance()` surfaces the state
+# below so it travels with the data rather than living only in this comment.
+#
+# Re-verify after any delegated act under Article 7(4), and do not set
+# `source_verified` by inspection — fetch the text.
+
+celex: "32024R2847"
+title: Regulation (EU) 2024/2847 (Cyber Resilience Act)
+source_verified: true
+verified_at: "2026-08-06"
+verified_against: https://publications.europa.eu/resource/celex/32024R2847
+applies_from: "2027-12-11"
+
+parts:
+  - id: part_i
+    title: Cybersecurity requirements relating to the properties of products with digital elements
+    anchor: Annex I, Part I
+    requirements:
+      - id: annex_i.i.1
+        anchor: Annex I Pt I(1)
+        summary: >-
+          Designed, developed and produced to ensure an appropriate level of
+          cybersecurity based on the risks.
+        evidence_hint: >-
+          The risk assessment itself, plus the design decisions it drove.
+          Article 13(2) makes the assessment the thing everything else in
+          Part I is judged against, so record it first.
+      # Everything from here to (2)(m) sits under one chapeau: "On the basis of
+      # the cybersecurity risk assessment referred to in Article 13(2) and where
+      # applicable, products with digital elements shall:". That sentence is the
+      # whole reason the risk assessment gates the checklist — these thirteen
+      # points are conditional on it, and (1) above is not.
+      - id: annex_i.i.2.a
+        anchor: Annex I Pt I(2)(a)
+        summary: Made available on the market without known exploitable vulnerabilities.
+        evidence_hint: >-
+          A dated scan or triage record for the shipped artifact — the claim is
+          about the release, so evidence tied to a git SHA or build id is worth
+          far more than a policy statement.
+      - id: annex_i.i.2.b
+        anchor: Annex I Pt I(2)(b)
+        summary: >-
+          Secure by default configuration, including the ability to reset the
+          product to its original state — unless otherwise agreed between
+          manufacturer and business user for a tailor-made product.
+      - id: annex_i.i.2.c
+        anchor: Annex I Pt I(2)(c)
+        summary: >-
+          Vulnerabilities can be addressed through security updates, including
+          automatic updates where applicable, with opt-out and the option to
+          postpone.
+      - id: annex_i.i.2.d
+        anchor: Annex I Pt I(2)(d)
+        summary: >-
+          Protection from unauthorised access by appropriate control
+          mechanisms, including authentication and access management, and
+          reporting of possible unauthorised access.
+      - id: annex_i.i.2.e
+        anchor: Annex I Pt I(2)(e)
+        summary: >-
+          Confidentiality of stored, transmitted or processed data, such as by
+          state-of-the-art encryption at rest and in transit.
+      - id: annex_i.i.2.f
+        anchor: Annex I Pt I(2)(f)
+        summary: >-
+          Integrity of stored, transmitted or processed data, commands,
+          programs and configuration against unauthorised manipulation, and
+          reporting of corruption.
+      - id: annex_i.i.2.g
+        anchor: Annex I Pt I(2)(g)
+        summary: >-
+          Data minimisation — process only data adequate, relevant and limited
+          to what is necessary for the intended purpose.
+      - id: annex_i.i.2.h
+        anchor: Annex I Pt I(2)(h)
+        summary: >-
+          Availability of essential and basic functions, including resilience
+          and mitigation against denial-of-service.
+      - id: annex_i.i.2.i
+        anchor: Annex I Pt I(2)(i)
+        summary: >-
+          Minimise the product's negative impact on the availability of
+          services provided by other devices or networks.
+      - id: annex_i.i.2.j
+        anchor: Annex I Pt I(2)(j)
+        summary: Limit attack surfaces, including external interfaces.
+      - id: annex_i.i.2.k
+        anchor: Annex I Pt I(2)(k)
+        summary: >-
+          Reduce the impact of an incident using appropriate exploitation
+          mitigation mechanisms and techniques.
+      - id: annex_i.i.2.l
+        anchor: Annex I Pt I(2)(l)
+        summary: >-
+          Provide security-related information by recording and monitoring
+          relevant internal activity, with an opt-out for the user.
+      - id: annex_i.i.2.m
+        anchor: Annex I Pt I(2)(m)
+        summary: >-
+          Allow users to securely and permanently remove all data and
+          settings, and to transfer data securely where that is possible.
+
+  - id: part_ii
+    title: Vulnerability handling requirements
+    anchor: Annex I, Part II
+    note: >-
+      Part II describes a process the manufacturer must operate, not a property
+      the artifact has. Evidence is therefore a policy plus a record of it being
+      followed — a documented disclosure policy with no advisories published
+      against it evidences very little.
+
+      Its chapeau reads "Manufacturers of products with digital elements
+      shall:" — unconditional, and addressed to manufacturers specifically.
+      Unlike Part I(2) these eight points are NOT qualified by the risk
+      assessment or by "where applicable", which is why confirming an
+      assessment does not answer them.
+    requirements:
+      - id: annex_i.ii.1
+        anchor: Annex I Pt II(1)
+        summary: >-
+          Identify and document vulnerabilities and components, including a
+          software bill of materials in a commonly used machine-readable
+          format covering at least the top-level dependencies.
+        evidence_hint: >-
+          `record_sbom` stores this one; the SBOM is the single most reusable
+          artifact in the whole annex.
+      - id: annex_i.ii.2
+        anchor: Annex I Pt II(2)
+        summary: >-
+          Address and remediate vulnerabilities without delay, providing
+          security updates separately from functionality updates where
+          technically feasible.
+      - id: annex_i.ii.3
+        anchor: Annex I Pt II(3)
+        summary: Apply effective and regular tests and reviews of product security.
+      - id: annex_i.ii.4
+        anchor: Annex I Pt II(4)
+        summary: >-
+          Once a security update is available, publicly disclose information
+          about fixed vulnerabilities — description, affected versions, impact,
+          severity, and how users remediate.
+      - id: annex_i.ii.5
+        anchor: Annex I Pt II(5)
+        summary: Put in place and enforce a coordinated vulnerability disclosure policy.
+      - id: annex_i.ii.6
+        anchor: Annex I Pt II(6)
+        summary: >-
+          Facilitate sharing of information about potential vulnerabilities,
+          including a contact address for reporting vulnerabilities found in
+          the product.
+      - id: annex_i.ii.7
+        anchor: Annex I Pt II(7)
+        summary: >-
+          Provide mechanisms to securely distribute updates so vulnerabilities
+          are fixed or mitigated in a timely and, where applicable, automated
+          manner.
+      - id: annex_i.ii.8
+        anchor: Annex I Pt II(8)
+        summary: >-
+          Disseminate security updates without delay and free of charge, with
+          advisory messages telling users what action to take.

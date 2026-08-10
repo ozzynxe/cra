@@ -1,0 +1,17 @@
+.venv/
+.git/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.egg-info/
+
+state/
+out/
+
+.env
+*.lock
+deploy/.deploy-tokens
+
+tests/
+PLAN.md

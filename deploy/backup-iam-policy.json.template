@@ -1,0 +1,43 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WriteBackups",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": [
+        "arn:aws:s3:::__DR_BUCKET__/db/*",
+        "arn:aws:s3:::__BUCKET__/db/*"
+      ]
+    },
+    {
+      "Sid": "SendDeadlineAlerts",
+      "Effect": "Allow",
+      "Action": "ses:SendEmail",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ses:FromAddress": "alerts@skarp.app"
+        }
+      }
+    },
+    {
+      "Sid": "NeverDeleteOrBypassRetention",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:BypassGovernanceRetention",
+        "s3:PutObjectRetention",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutLifecycleConfiguration"
+      ],
+      "Resource": [
+        "arn:aws:s3:::__BUCKET__",
+        "arn:aws:s3:::__BUCKET__/*",
+        "arn:aws:s3:::__DR_BUCKET__",
+        "arn:aws:s3:::__DR_BUCKET__/*"
+      ]
+    }
+  ]
+}

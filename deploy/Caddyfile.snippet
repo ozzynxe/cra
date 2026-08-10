@@ -1,0 +1,93 @@
+# Add to the Caddyfile ON THE HOST (it is not in this repo), then:
+#   docker exec deploy-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+#
+# There is no SPA and no static root — this is an API and an MCP wire, nothing
+# else. If a browser-facing console is added later it gets its own block; do not
+# widen this one.
+
+cra.example.app {
+	encode gzip
+
+	# SBOM uploads are the largest thing this endpoint accepts.
+	request_body {
+		max_size 12MB
+	}
+
+	# The MCP wire and everything the connector handshake needs. Claude.ai
+	# fetches the two .well-known documents before it will attach, so a missing
+	# prefix here shows up as a silent connect failure with nothing in the app
+	# logs. This has happened; check the matcher first.
+	# No /admin/* — the inherited admin routes were removed rather than ported
+	# (see server/admin.py). Don't add the prefix back without a route behind
+	# it: an admin-token backdoor into a store of unreported vulnerability
+	# details is the last thing this should grow.
+	@api {
+		path /mcp/*
+		path /oauth/*
+		path /.well-known/*
+		# Self-serve access. /access and the completion page are rendered by the
+		# application, not served from disk: the completion page is the only
+		# place a freshly minted token is ever displayed.
+		path /access
+		# Where Stripe returns the customer's browser after checkout. The
+		# webhook itself is under /api/*.
+		path /billing
+		# Public, and the only app-rendered page that should be indexed:
+		# prices are read live from Stripe rather than written into the site.
+		path /pricing
+		# The signed-in console. Read-only; see server/console.py.
+		path /app
+		path /app/*
+		path /api/*
+		path /health
+		path /version
+	}
+	handle @api {
+		# Long timeouts because MCP holds a streaming response open for the
+		# life of a session. The default would be no timeout at all, which is
+		# worse in the other direction — a wedged upstream is held forever.
+		reverse_proxy cra:8000 {
+			transport http {
+				read_timeout 15m
+				write_timeout 15m
+			}
+		}
+	}
+
+	# Everything else is the public site: static files, served by Caddy, never
+	# proxied to the application. The @api list above is still matched first and
+	# is unchanged — the point of putting a browser-facing surface here is that
+	# it adds no route to a service holding unreported vulnerability details.
+	# Nothing under /var/cra-www talks to the database, and a mistake in the
+	# site cannot become a mistake in the API.
+	#
+	# Published by deploy.sh from the repo's www/ directory.
+	handle {
+		root * /var/cra-www
+		try_files {path} {path}.html {path}/index.html
+		file_server
+		# Scoped to the static site, NOT to the whole block. The OAuth consent
+		# page is served by the application with an inline <style>, and a
+		# site-wide `style-src 'self'` would strip it — an unstyled consent
+		# screen asking for a credential is exactly the thing users are told to
+		# distrust.
+		header Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+	}
+	handle_errors {
+		respond "Not found" {err.status_code}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		# Neither the site nor the consent screen should ever be framed.
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/cra.log
+		format json
+	}
+}

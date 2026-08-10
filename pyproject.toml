@@ -1,0 +1,71 @@
+[project]
+name = "cra-mcp"
+version = "0.1.0"
+description = "MCP server for EU Cyber Resilience Act (Regulation 2024/2847) compliance: scope classification, Annex I evidence, statutory reporting clocks, and the Annex VII technical file."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "filelock>=3.15",
+    "markdown-it-py>=3.0",
+    "typer>=0.12",
+    "rich>=13.7",
+    "anthropic>=0.40",
+    "openai>=1.50",
+    "google-genai>=0.3",
+    # Pinned <2: mcp 2.0 replaced FastMCP with a restructured mcpserver module.
+    # Migrating is a scoped task of its own — see README.
+    "mcp>=1.28,<2",
+    "anyio>=4.4",
+    "httpx>=0.27",
+    "uvicorn>=0.30",
+    "starlette>=0.37",
+    "pypdf>=4.0",
+    "boto3>=1.34",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    "pyjwt>=2.8",
+    "bcrypt>=4.1",
+    "sentry-sdk>=2.10",
+    "stripe>=10.0",
+    "redis>=5.0",
+    "python-docx>=1.1",
+]
+
+[project.optional-dependencies]
+aws = []
+pdf = ["weasyprint>=62"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "moto[dynamodb,s3]>=5.0"]
+
+[project.scripts]
+# Only the HTTP app has an entry point. The Coauthor-era `cra-demo`,
+# `cra-review` and `cra-server` entries named modules that do not exist in this
+# fork — an install declaring them produces console scripts that fail on import.
+cra-http = "cra.server.http_app:run"
+
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"cra.render" = ["*.css"]
+# Data files the server cannot run without. Omit any of these and an editable
+# install works perfectly while a real one silently ships without them — the
+# failure only appears in the built image, at the first tool call that reads
+# the catalogue. `tests/unit/test_packaging.py` guards this list.
+"cra.report_templates" = ["*.yaml"]
+"cra.regulation" = ["*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: end-to-end tests using deterministic policy agents",
+]
+asyncio_mode = "auto"

@@ -1,0 +1,184 @@
+# Annex VII (technical documentation) and Annex V (EU Declaration of
+# Conformity) to Regulation (EU) 2024/2847.
+#
+# PROVENANCE — see annex_i.yaml for the fetch route.
+#
+# Reconciled against CELEX 32024R2847 on 2026-08-06. All eight Annex VII slots
+# and all eight Annex V fields matched the published order and content. Two
+# wordings were corrected: Annex V(3) says the declaration is issued under the
+# sole responsibility of the *provider*, and Annex V(5) does not name the CRA.
+#
+# Annex VII(3) is worth reading in the original — it asks for the Article 13
+# risk assessment "including how the essential cybersecurity requirements set
+# out in Part I of Annex I are applicable". Two things, not one, which is why
+# the slot needs a confirmed assessment as well as checklist coverage.
+#
+# The Annex VII slots are a **flat, fixed list**, not a tree. That is a
+# deliberate design choice inherited from the plan: the technical file has
+# exactly these sections, in this order, so there is nothing to move, split or
+# merge. It deletes an entire subsystem's worth of code that a document tool
+# would need.
+
+celex: "32024R2847"
+source_verified: true
+verified_at: "2026-08-06"
+verified_against: https://publications.europa.eu/resource/celex/32024R2847
+
+technical_file:
+  anchor: Annex VII
+  # Retention is NOT in Annex VII — Annex VII lists what the file contains.
+  # The duty is Article 13(13), and it is a rule rather than a number: ten
+  # years *or the support period, whichever is longer*, running from when the
+  # product was placed on the market. Stored as `retention_years: 10` until
+  # 2026-08-09, which reported ten years for a product with a twelve-year
+  # support period and cited the wrong provision for it.
+  retention:
+    anchor: Article 13(13)
+    floor_years: 10
+    from: placed_on_market
+    or_support_period: true
+    covers: >-
+      the technical documentation and the EU declaration of conformity
+  slots:
+    - id: tf.1
+      anchor: Annex VII(1)
+      title: General description of the product
+      needs:
+        - intended purpose
+        - versions of software affecting compliance with the essential requirements
+        - for hardware, photographs or illustrations showing external features, marking and internal layout
+        - user information and instructions (Annex II)
+      # Annex II is worked item by item — see annex_ii.yaml. The slot still
+      # needs its own evidence for the description, versions and photographs,
+      # so this reports coverage *in addition to* the attachment rather than
+      # replacing it.
+      satisfied_by: user_information
+    - id: tf.2
+      anchor: Annex VII(2)
+      title: Design, development, production and vulnerability handling processes
+      needs:
+        - design and development information, including system architecture and how components integrate
+        - vulnerability handling process specifications, including the SBOM, the coordinated vulnerability disclosure policy, the reporting contact address, and how security updates are securely distributed
+        - production and monitoring processes, and their validation
+      auto_from:
+        - annex_i.ii.1
+        - annex_i.ii.5
+        - annex_i.ii.6
+        - annex_i.ii.7
+    - id: tf.3
+      anchor: Annex VII(3)
+      title: Cybersecurity risk assessment
+      needs:
+        - the Article 13 risk assessment
+        - how each Annex I Part I requirement applies to this product
+        - how each applicable requirement is implemented
+      auto_from_part: part_i
+      requires_risk_assessment: true
+      note: >-
+        Two things, and requirement coverage is only the second. The first is
+        the Article 13(2) assessment itself, which is why
+        `requires_risk_assessment` is set: this slot used to report complete on
+        checklist coverage alone, so a file could be frozen, declared and
+        signed with the one artifact Article 13(2) mandates never recorded.
+        A requirement marked not_applicable with no justification leaves a hole
+        here that an auditor reads directly.
+    - id: tf.4
+      anchor: Annex VII(4)
+      title: Support period determination
+      needs:
+        - information taken into account in determining the support period (Article 13(8))
+      satisfied_by: support_period
+      note: >-
+        The support period must be at least five years unless the product's
+        expected lifetime is shorter, and the reasoning is part of the file —
+        not just the date.
+    - id: tf.5
+      anchor: Annex VII(5)
+      title: Standards and specifications applied
+      needs:
+        - harmonised standards applied in full or in part
+        - other technical specifications or common specifications applied
+        - where standards were not applied, a description of the solutions adopted to meet the essential requirements
+      note: >-
+        For Annex III class I this slot decides the conformity route: internal
+        control is available only where the standards are applied *in full*.
+    - id: tf.6
+      anchor: Annex VII(6)
+      title: Test reports
+      needs:
+        - reports of the tests carried out to verify conformity of the product
+        - reports of the tests carried out on the vulnerability handling processes
+      auto_from:
+        - annex_i.ii.3
+    - id: tf.7
+      anchor: Annex VII(7)
+      title: EU Declaration of Conformity
+      needs:
+        - a copy of the EU declaration of conformity
+      satisfied_by: declaration_of_conformity
+    - id: tf.8
+      anchor: Annex VII(8)
+      title: Software bill of materials
+      optional: true
+      needs:
+        - the SBOM, where requested by a market surveillance authority
+      auto_from:
+        - annex_i.ii.1
+      note: >-
+        Annex VII lists this as produced on reasoned request rather than held
+        as a matter of course. Recording it anyway costs nothing and the SBOM
+        is already required by Annex I Pt II(1).
+
+declaration_of_conformity:
+  anchor: Annex V
+  fields:
+    - id: doc.1
+      anchor: Annex V(1)
+      title: Product name, type and identifying information
+      source: product
+    - id: doc.2
+      anchor: Annex V(2)
+      title: Name and address of the manufacturer or authorised representative
+      source: submitter
+    - id: doc.3
+      anchor: Annex V(3)
+      title: Statement that the declaration is issued under the sole responsibility of the provider
+      source: fixed
+      text: >-
+        This EU declaration of conformity is issued under the sole
+        responsibility of the provider.
+      note: >-
+        "Provider" is what Annex V(3) actually says, and it is the only place
+        in the instrument that uses the word — everywhere else the duty holder
+        is the manufacturer. It reads like a drafting slip, but this text is
+        reproduced verbatim into a legal declaration, so it follows the
+        published wording. Do not "correct" it to manufacturer.
+    - id: doc.4
+      anchor: Annex V(4)
+      title: Object of the declaration — identification allowing traceability
+      source: product
+    - id: doc.5
+      anchor: Annex V(5)
+      title: Statement of conformity with the relevant Union harmonisation legislation
+      source: fixed
+      text: >-
+        The object of the declaration described above is in conformity with
+        the relevant Union harmonisation legislation.
+      note: >-
+        Annex V(5) is generic — it does not name the CRA. The catalogue used to
+        insert "Regulation (EU) 2024/2847 and", which reads as an improvement
+        and is not what the annex prescribes.
+    - id: doc.6
+      anchor: Annex V(6)
+      title: References to harmonised standards, common specifications or certification relied on
+      source: technical_file
+      from_slot: tf.5
+    - id: doc.7
+      anchor: Annex V(7)
+      title: Notified body name, number, procedure performed and certificate
+      source: manual
+      required_when_notified_body: true
+    - id: doc.8
+      anchor: Annex V(8)
+      title: Place and date of issue, name, function and signature
+      source: attestation

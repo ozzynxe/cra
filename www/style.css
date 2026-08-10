@@ -1,0 +1,468 @@
+/* cra.skarp.app — one stylesheet, no build step, no external hosts.
+   System fonts only. Dark mode via prefers-color-scheme. Print CSS is load-bearing.
+
+   Everything down to the "additions" block at the foot came from the original
+   design as delivered, and is deliberately unedited: a local tweak up there is a
+   value that no longer matches the design the rest of the page was drawn
+   against. New work goes in the additions block, where it is visible as ours. */
+
+:root {
+  --paper:#faf8f4; --card:#ffffff; --ink:#14130f; --ink-2:#3d3830; --muted:#5a544a;
+  --faint:#6b6459; --rule:#ddd7cd; --rule-2:#efece6; --wash:#f4f1eb;
+  --accent:oklch(0.44 0.13 288); --ok:oklch(0.42 0.11 145); --warn:oklch(0.47 0.11 62);
+  --alert:oklch(0.48 0.14 30); --warn-bg:oklch(0.97 0.03 75); --warn-line:oklch(0.62 0.13 62);
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --r:3px; --w:1100px; --w-narrow:660px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:#14130f; --card:#1a1815; --ink:#f2efe9; --ink-2:#d9d4cb; --muted:#a9a297;
+    --faint:#8e877b; --rule:#332f29; --rule-2:#282521; --wash:#1f1c19;
+    --accent:oklch(0.78 0.12 288); --ok:oklch(0.75 0.14 145); --warn:oklch(0.80 0.14 75);
+    --alert:oklch(0.72 0.15 30); --warn-bg:#241f16; --warn-line:oklch(0.55 0.12 62);
+  }
+}
+
+*,*::before,*::after { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body {
+  margin:0; background:var(--paper); color:var(--ink);
+  font:16px/1.6 var(--sans); -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3 { margin:0; font-weight:650; letter-spacing:-0.02em; line-height:1.12; text-wrap:balance; }
+h1 { font-size:2.375rem; } h2 { font-size:1.625rem; } h3 { font-size:1.0625rem; letter-spacing:-0.01em; }
+p { margin:0; text-wrap:pretty; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
+code,kbd,samp,pre { font-family:var(--mono); }
+
+/* ---- layout ---------------------------------------------------------- */
+.wrap { max-width:var(--w); margin:0 auto; padding:0 3.5rem; }
+.wrap.narrow { max-width:var(--w-narrow); }
+.wide { max-width:none; }
+section { padding:0 0 3.5rem; }
+.stack { display:flex; flex-direction:column; gap:1rem; }
+.grid { display:grid; gap:1.25rem; }
+.grid.cols-2 { grid-template-columns:repeat(2,1fr); }
+.grid.cols-3 { grid-template-columns:repeat(3,1fr); }
+.grid.cols-4 { grid-template-columns:repeat(4,1fr); }
+.split { display:grid; grid-template-columns:1fr 400px; gap:3.5rem; align-items:start; }
+.section-head {
+  display:flex; align-items:baseline; justify-content:space-between; gap:1.5rem;
+  border-bottom:1px solid var(--rule); padding-bottom:0.75rem; margin-bottom:1.5rem;
+}
+
+/* ---- masthead / footer ----------------------------------------------- */
+.masthead { border-bottom:1px solid var(--rule); }
+.masthead .wrap { display:flex; align-items:center; justify-content:space-between; padding-block:1.125rem; }
+.brand { font-weight:650; letter-spacing:-0.01em; }
+.brand span { font:400 0.75rem/1 var(--mono); color:var(--faint); margin-left:0.5rem; }
+.masthead nav { display:flex; align-items:center; gap:1.625rem; font-size:0.9375rem; }
+.masthead nav a { color:var(--ink-2); }
+.masthead nav a[aria-current="page"] { font-weight:600; border-bottom:2px solid currentColor; padding-bottom:2px; }
+.sitefoot {
+  border-top:1px solid var(--rule); font-size:0.84375rem; color:var(--muted);
+}
+.sitefoot .wrap { display:flex; align-items:center; justify-content:space-between; gap:2rem; padding-block:1.625rem; }
+.sitefoot nav { display:flex; gap:1.25rem; white-space:nowrap; }
+
+/* ---- type helpers ----------------------------------------------------- */
+.lede { font-size:1.1875rem; line-height:1.55; color:var(--ink-2); max-width:56ch; }
+.muted { color:var(--muted); }
+.small { font-size:0.84375rem; line-height:1.55; }
+.eyebrow { font:0.78125rem/1 var(--mono); letter-spacing:0.07em; color:var(--faint); text-transform:uppercase; }
+.mono { font-family:var(--mono); font-size:0.78125rem; }
+
+/* ---- buttons ---------------------------------------------------------- */
+.btn {
+  display:inline-block; font:500 0.9375rem/1 var(--sans); padding:0.75rem 1.375rem;
+  border:1px solid var(--rule); border-radius:var(--r); color:var(--ink); background:transparent; cursor:pointer;
+}
+.btn:hover { border-color:var(--ink); text-decoration:none; }
+.btn.cta { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+.btn.cta:hover { opacity:0.88; }
+.btn.small { padding:0.4375rem 0.8125rem; font-size:0.84375rem; }
+
+/* ---- cards ------------------------------------------------------------ */
+.card { background:var(--card); border:1px solid var(--rule); border-radius:var(--r); padding:1.625rem 1.5rem; }
+.card.flush { padding:0; overflow:hidden; }
+.card.keyline { border:2px solid var(--ink); }
+.card.alert { border:2px solid var(--alert); }
+.card h3 + p { margin-top:0.375rem; }
+.card-head { padding:0.875rem 1.25rem; border-bottom:1px solid var(--rule); }
+.card-foot { padding:0.875rem 1.25rem; border-top:1px solid var(--rule); font-size:0.84375rem; color:var(--muted); }
+
+/* the boxed statement — a caveat that cannot be shrunk away */
+.statement {
+  border:2px solid var(--ink); border-radius:var(--r); background:var(--card);
+  padding:1.25rem 1.5rem; display:flex; gap:1.25rem; align-items:baseline;
+}
+.statement .eyebrow { white-space:nowrap; color:var(--ink); font-weight:600; }
+.statement p { font-size:1.0625rem; line-height:1.5; }
+.note { border:1px solid var(--warn-line); background:var(--warn-bg); border-radius:var(--r); padding:0.875rem 1.125rem; font-size:0.90625rem; line-height:1.55; }
+.note strong { font-weight:650; }
+
+/* ---- figures ---------------------------------------------------------- */
+.figure { display:flex; flex-direction:column; gap:0.5rem; }
+.figure .n { font-size:2rem; font-weight:650; letter-spacing:-0.03em; line-height:1; }
+.figure .n small { font-size:1.0625rem; font-weight:400; color:var(--faint); }
+
+/* ---- tables ----------------------------------------------------------- */
+table { border-collapse:collapse; width:100%; font-size:0.90625rem; }
+caption { text-align:left; font-weight:650; padding-bottom:0.5rem; }
+th, td { text-align:left; padding:0.6875rem 1.25rem; border-bottom:1px solid var(--rule-2); vertical-align:baseline; }
+thead th {
+  background:var(--wash); border-bottom:1px solid var(--rule);
+  font:400 0.6875rem/1 var(--mono); letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);
+}
+td.ref, td.num { font-family:var(--mono); font-size:0.75rem; color:var(--faint); white-space:nowrap; }
+td.num { text-align:right; }
+.table-wrap { border:1px solid var(--rule); border-radius:var(--r); overflow:hidden; background:var(--card); }
+.table-wrap tbody tr:last-child td { border-bottom:0; }
+
+/* the deadline table */
+.dates { border:2px solid var(--ink); border-radius:var(--r); background:var(--card); overflow:hidden; }
+.dates caption { padding:0.875rem 1.25rem; border-bottom:1px solid var(--rule); font:600 0.75rem/1 var(--mono); letter-spacing:0.06em; text-transform:uppercase; }
+.dates th { background:transparent; border-right:1px solid var(--rule-2); font:650 1.375rem/1.15 var(--sans); letter-spacing:-0.02em; text-transform:none; color:var(--ink); white-space:nowrap; padding:1.125rem 1.25rem; }
+.dates td { padding:1.125rem 1.25rem; font-size:0.9375rem; line-height:1.5; color:var(--ink-2); }
+.dates tfoot td { border-top:1px solid var(--rule); border-bottom:0; font-size:0.84375rem; color:var(--muted); }
+
+/* status words — never colour alone; the word carries the meaning */
+.status { font-size:0.84375rem; font-weight:500; }
+.status.ok { color:var(--ok); } .status.gap { color:var(--warn); }
+.status.progress { color:var(--accent); } .status.na { color:var(--faint); font-weight:400; }
+.status.late { font-family:var(--mono); font-size:0.78125rem; color:var(--alert); }
+
+/* ---- terminal / credential ------------------------------------------- */
+.term {
+  font:0.84375rem/1.7 var(--mono); background:#000; color:#d9d4cb;
+  border:1px solid var(--rule); border-radius:var(--r); padding:1rem; overflow-x:auto; white-space:pre-wrap; word-break:break-all;
+}
+.credential { border:2px solid var(--warn); border-radius:var(--r); background:#000; padding:1.375rem; display:flex; flex-direction:column; gap:0.75rem; }
+.credential .eyebrow { color:var(--faint); }
+.credential code { font-size:1.1875rem; line-height:1.5; color:#f7f5f0; word-break:break-all; }
+.once { color:var(--warn); font:0.78125rem/1 var(--mono); letter-spacing:0.08em; text-transform:uppercase; }
+/* the token page is inverted whatever the colour scheme — it must not look routine */
+.inverted { background:#14130f; color:#f2efe9; }
+.inverted .muted, .inverted .small { color:#a9a297; }
+
+/* ---- forms ------------------------------------------------------------ */
+label { display:block; font-size:0.9375rem; font-weight:500; margin-bottom:0.375rem; }
+input[type="email"], input[type="text"] {
+  width:100%; font:1rem var(--sans); color:var(--ink); background:var(--card);
+  border:1px solid var(--rule); border-radius:var(--r); padding:0.75rem 1rem;
+}
+.field-row { display:flex; gap:0.5rem; }
+.field-row input { flex:1; }
+.error { border-left:3px solid var(--alert); padding:0.75rem 1rem; background:var(--card); font-size:0.9375rem; }
+.gap, .limits, .updated { font-size:0.84375rem; color:var(--muted); }
+
+/* ---- pricing ---------------------------------------------------------- */
+.onramp { display:grid; grid-template-columns:1fr auto; gap:2.5rem; align-items:center; }
+.price { font-size:2.125rem; font-weight:650; letter-spacing:-0.03em; line-height:1; }
+.price small { font-size:0.9375rem; font-weight:400; color:var(--faint); letter-spacing:0; }
+.price-unavailable { font-size:1rem; font-weight:600; color:var(--ink-2); }
+.plan { display:flex; flex-direction:column; gap:1rem; }
+.plan ul { margin:0; padding:0.875rem 0 0; list-style:none; border-top:1px solid var(--rule-2); display:flex; flex-direction:column; gap:0.4375rem; font-size:0.90625rem; }
+.plan .btn { margin-top:auto; text-align:center; }
+.rule-label { display:flex; align-items:center; gap:1rem; }
+.rule-label::after { content:""; flex:1; height:1px; background:var(--rule); }
+
+/* ---- FAQ (CSS only — no JS anywhere on this site) --------------------- */
+.faq { display:flex; flex-direction:column; }
+.faq > div, .faq details { border-bottom:1px solid var(--rule-2); padding:1rem 0; }
+.faq summary { font-weight:600; cursor:pointer; }
+.faq .qa { display:grid; grid-template-columns:1fr 1.4fr; gap:2rem; }
+
+/* ---- report page ------------------------------------------------------ */
+.report { max-width:816px; margin:0 auto; background:var(--card); padding:3rem 3.5rem; }
+.report-head { display:flex; align-items:baseline; justify-content:space-between; gap:1.5rem; border-bottom:2px solid var(--ink); padding-bottom:0.75rem; }
+.slot { border:1px solid var(--ink); border-radius:0; padding:0.875rem 1rem; display:grid; grid-template-columns:1fr 150px; gap:1.25rem; break-inside:avoid; page-break-inside:avoid; }
+.slot .state { text-align:right; font-size:0.8125rem; font-weight:700; letter-spacing:0.04em; }
+.slot .hash { font-family:var(--mono); font-size:0.6875rem; color:var(--muted); word-break:break-all; }
+.provenance { border-top:2px solid var(--ink); margin-top:1.5rem; padding-top:0.875rem; font-size:0.78125rem; }
+.provenance div { display:grid; grid-template-columns:120px 1fr; gap:0.875rem; padding:0.1875rem 0; }
+.provenance span:first-child { color:var(--muted); }
+.provenance code { word-break:break-all; }
+
+/* ---- responsive ------------------------------------------------------- */
+@media (max-width: 900px) {
+  .wrap { padding:0 1.25rem; }
+  .split, .onramp, .faq .qa { grid-template-columns:1fr; gap:1.5rem; }
+  .grid.cols-4 { grid-template-columns:repeat(2,1fr); }
+  .grid.cols-3 { grid-template-columns:1fr; }
+  h1 { font-size:1.875rem; } h2 { font-size:1.375rem; }
+  .masthead .wrap { flex-wrap:wrap; gap:0.75rem; }
+  .masthead nav { gap:1rem; font-size:0.875rem; }
+  .table-wrap { overflow-x:auto; }
+}
+
+/* ---- print — load-bearing on /app/p/{id}/report ----------------------- */
+@media print {
+  :root { --paper:#fff; --card:#fff; --ink:#000; --ink-2:#222; --muted:#555; --faint:#555; --rule:#000; --rule-2:#999; --wash:#fff; }
+  body { background:#fff; color:#000; font-size:10.5pt; }
+  .masthead, .sitefoot, nav, .btn, .no-print { display:none !important; }
+  a { color:#000; text-decoration:none; }
+  .report { max-width:none; margin:0; padding:0; }
+  .card, .slot, .statement, .note, .table-wrap { break-inside:avoid; page-break-inside:avoid; box-shadow:none; }
+  .statement, .note { border:2px solid #000 !important; background:#fff !important; }
+  .provenance, .report-head { display:block !important; }
+  thead { display:table-header-group; }
+  @page { margin:18mm 16mm; }
+}
+
+/* ======================================================================
+   Additions — ours, not the handoff's.
+
+   The design covers the marketing pages and the console. Four things it does
+   not cover are load-bearing here, so they live below the line rather than
+   being smuggled into the block above.
+   ====================================================================== */
+
+/* 1. Vertical rhythm, which the handoff's cascade loses.
+
+   `section { padding: 0 0 3.5rem }` sets the gap between page blocks, but
+   every block in the reference markup is `<section class="wrap">`, and
+   `.wrap { padding: 0 3.5rem }` is a shorthand — it resets padding-bottom to
+   zero, and a class selector outranks an element one. The result is that
+   sections stack flush and the page reads as one undifferentiated column.
+   Same value the handoff asked for, restated where it survives.
+
+   `main` gets the matching space at the top; without it the hero sits hard
+   against the masthead rule on every page. */
+section.wrap { padding-bottom:3.5rem; }
+main { padding-top:3.5rem; }
+@media print { main { padding-top:0; } section.wrap { padding-bottom:0; } }
+
+/* The report column has the same problem one level down. `p` and `h1` carry no
+   margin — right everywhere else, because `.stack` sets the rhythm there — so
+   the title, the three facts and the caveat block all collide. This is the
+   page that gets printed and forwarded; it has to read as a document. */
+.report > * + * { margin-top:1.5rem; }
+.report .grid { gap:1rem 1.25rem; }
+
+/* Print, which the 900px breakpoint reaches by accident.
+
+   A4 with the handoff's 18mm/16mm margins is about 700 CSS px, so
+   `@media (max-width: 900px)` matches on paper. Every phone rule the handoff
+   writes — and every one of mine above — therefore lands in the PDF: the
+   slot's state word drops under the description instead of sitting beside it,
+   and the three facts under the product name stack into a column. The printed
+   report is the artefact that leaves the company, so the two-column layouts
+   are restored here rather than left to a breakpoint that was never about
+   paper. (Mine are scoped `screen` above; these restore the handoff's.)
+
+   `.provenance` also gets `break-inside: avoid`, which the handoff grants to
+   cards, slots, statements and tables but not to the block carrying the hash
+   and the generation time — and that block sits at the foot of the document,
+   where a page break is most likely. */
+@media print {
+  .provenance { break-inside:avoid; page-break-inside:avoid; }
+  .provenance div { grid-template-columns:120px 1fr; }
+  .slot { grid-template-columns:1fr 150px; }
+  .slot .state { text-align:right; }
+  .report-head { flex-direction:row; }
+  .grid.cols-2 { grid-template-columns:repeat(2,1fr); }
+  .grid.cols-3 { grid-template-columns:repeat(3,1fr); }
+  .grid.cols-4 { grid-template-columns:repeat(4,1fr); }
+}
+
+/* 2. Long-form prose — /terms.html and /privacy.html.
+
+   `p { margin:0 }` is right for the composed pages, where `.stack` sets the
+   rhythm. It is wrong for a legal text of eighty paragraphs, which needs
+   flow spacing and a measure. These are documents someone reads end to end
+   under an obligation; readable beats beautiful. */
+.prose { max-width:68ch; }
+.prose p, .prose ul, .prose ol { margin:0 0 1rem; }
+.prose h2 { margin:2.5rem 0 0.75rem; }
+.prose h3 { margin:1.5rem 0 0.375rem; }
+.prose ul, .prose ol { padding-left:1.25rem; }
+.prose li { margin:0.375rem 0; }
+.prose li::marker { color:var(--faint); }
+.prose .note, .prose .statement, .prose .card { margin:1.5rem 0; }
+.prose hr { border:0; border-top:1px solid var(--rule); margin:2.5rem 0; }
+.prose dt { font-weight:600; margin-top:1rem; }
+.prose dd { margin:0.25rem 0 0; color:var(--ink-2); }
+.prose h4 { margin:1.25rem 0 0.375rem; }
+/* /coverage renders markdown, where an aside is a blockquote and there is no
+   way to reach for `.note`. Unstyled it is a UA indent and nothing else — and
+   on that page the blockquotes carry the quoted text of the regulation and the
+   Art 3(41)/3(42) correction, which is the one distinction the marketing copy
+   is not allowed to blur. It should look like a thing set apart. */
+.prose blockquote {
+  margin:1.5rem 0; padding:0.875rem 1.125rem;
+  border-left:2px solid var(--rule-2); background:var(--wash);
+  color:var(--ink-2);
+}
+.prose blockquote > :last-child { margin-bottom:0; }
+/* Tool and VEX identifiers run past forty characters —
+   `vulnerable_code_cannot_be_controlled_by_adversary` is wider than a 375px
+   viewport on its own, and one unbreakable word gives the whole page a
+   horizontal scrollbar. Scoped to prose so the connect commands on the
+   homepage, which are meant to be selected in one piece, keep their line. */
+.prose :not(pre) > code { overflow-wrap:break-word; }
+
+/* 2c. `.coverage` — the homepage's obligation list.
+
+   Written as a table first, and it was wrong on a phone: at 375px the second
+   column carries all the substance and `.table-wrap` put it behind a sideways
+   scroll. It is not tabular data anyway — nothing compares down a column — it
+   is term and definition, so a `dl` says what it is and reflows for free.
+   Two columns where there is room, stacked where there is not. */
+/* No border-top: `.section-head` already closes with a rule, and two of them
+   1.5rem apart reads as a mistake. */
+.coverage > div { border-bottom:1px solid var(--rule-2); padding:1.25rem 0; }
+.coverage dt { font-weight:650; }
+.coverage dd { margin:0.5rem 0 0; }
+.coverage dd > * + * { margin-top:0.5rem; }
+.coverage .tools { word-break:break-word; }
+.rowsub { display:block; font-weight:400; margin-top:0.1875rem; }
+
+@media (min-width: 901px) {
+  .coverage > div { display:grid; grid-template-columns:15rem 1fr; gap:2rem; }
+  .coverage dd { margin:0; }
+}
+
+/* 2d. `.obligations` — /coverage. Same list, one column more: the anchor, what
+   the law requires, and what we do about it.
+
+   The two halves are labelled on every row rather than once at the top of the
+   section. It looks repetitive and it stays, because the left column is a
+   paraphrase of a regulation and the right is a claim about our own software,
+   and a reader who has scrolled past the header has no way back to which is
+   which. Getting those confused is the one misreading this page cannot
+   afford. */
+.obligations > div { padding:1.5rem 0; }
+.obligations dt { font-family:var(--mono); font-size:0.875rem; font-weight:400; }
+.obligations .lbl {
+  font:400 0.6875rem/1 var(--mono); letter-spacing:0.06em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:0.375rem;
+}
+.obligations .obligation p:not(.lbl) { color:var(--ink-2); }
+.obligations .tools { margin-top:0.5rem; word-break:break-word; }
+.obligations .obligation + .support { margin-top:1.25rem; }
+.section-lede { max-width:60ch; color:var(--ink-2); margin-bottom:1.5rem; }
+
+@media (min-width: 901px) {
+  .obligations > div { grid-template-columns:7rem 1fr; }
+  .obligations dd { display:grid; grid-template-columns:1fr 1fr; gap:2.5rem; }
+  .obligations .obligation + .support { margin-top:0; }
+}
+
+/* A closing line under a grid or a table — on the homepage, the two sentences
+   that say what the section above deliberately leaves out. `.section-head`
+   owns the space above a block and nothing owns the space below one, because
+   until now nothing followed one. */
+.section-foot { margin-top:1.5rem; }
+
+/* Monthly / annual on /pricing. Two links, not a control: there is no
+   JavaScript anywhere on this site — the CSP is `default-src 'none'` — so each
+   choice is a real URL. That also makes an annual quote shareable, which a
+   scripted toggle would not be. */
+.cadence-toggle {
+  display:inline-flex; border:1px solid var(--rule); border-radius:var(--r);
+  overflow:hidden; margin-bottom:1.25rem;
+}
+.cadence-toggle a {
+  padding:0.4375rem 1rem; font-size:0.875rem; text-decoration:none;
+  color:var(--ink-2); background:var(--card);
+}
+.cadence-toggle a + a { border-left:1px solid var(--rule); }
+.cadence-toggle a.on { background:var(--ink); color:var(--card); font-weight:600; }
+
+/* 2b. `.prose.doc` — a whole markdown document rendered into a page, which
+   today means /coverage. It carries three levels inside one page (document,
+   section, subsection) where the legal pages carry two, and the global scale
+   drops hard after h2: 2.375 / 1.625 / 1.0625rem. That last step is right for
+   an h3 used as a card label and wrong when the h3 is "iii. Obligations we
+   cannot address" — a division of the argument, which then reads as a bold
+   sentence indistinguishable from the lead-ins under it. */
+.prose.doc h3 { font-size:1.375rem; margin:2.75rem 0 0.75rem; }
+.prose.doc h4 {
+  font-size:1.0625rem; font-weight:650; letter-spacing:-0.01em;
+  line-height:1.12; margin:1.75rem 0 0.5rem;
+}
+
+/* 3. Inline code. The handoff sets the family and styles the `.term` block,
+   but prose on the legal pages, the console and the access flow all name
+   tokens, tools and endpoints inline. Tinted rather than boxed, so a
+   paragraph of them does not turn into a fence. */
+code { font-size:0.875em; }
+:not(pre) > code { background:var(--wash); border:1px solid var(--rule-2); border-radius:2px; padding:0.1em 0.35em; }
+.inverted :not(pre) > code { background:#231f1a; border-color:#332f29; }
+/* Not the token. `.credential` is already a framed block, and boxing the
+   thing inside the box makes the one string on the page that has to be
+   selected cleanly look like incidental markup. */
+.credential > code { background:none; border:0; padding:0; font-size:1.1875rem; }
+
+/* 4. Sign-out. It is a POST, because as a GET any image tag on any page could
+   trigger it — so it is a button that has to sit in a row of nav links
+   without announcing itself as a different kind of thing. */
+.linklike {
+  background:none; border:0; padding:0; margin:0; font:inherit;
+  color:var(--ink-2); cursor:pointer;
+}
+.linklike:hover { text-decoration:underline; }
+form.inline { display:inline; }
+
+/* 5. The responsive rules collapse `.split`, `.onramp`, the FAQ, `.cols-3` and
+   `.cols-4` — but not `.cols-2`, which is left at two columns of ~170px on a
+   phone. That is what "Who it is for" on the homepage, the get-access panel,
+   and the console's obligations/figures row and determination tables all use,
+   and a table in a 170px column pushes the whole document sideways.
+
+   Onboarding and the console are read on phones, so this is the breakpoint
+   that matters most. The report is exempt: it is a document sized for paper,
+   and the brief says it does not need to be pretty on a phone — but it still
+   must not drag the page into a horizontal scroll. */
+@media screen and (max-width: 900px) {
+  .grid.cols-2 { grid-template-columns:1fr; }
+  .report { padding:1.5rem 1.25rem; }
+  /* `.slot` is `1fr 150px` and `.provenance` is `120px 1fr`; neither fits a
+     phone, and a report that scrolls sideways is one nobody reads to the
+     provenance block at the foot. The state word moves above the description
+     rather than beside it. */
+  .slot { grid-template-columns:1fr; gap:0.5rem; }
+  .slot .state { text-align:left; }
+  .report-head { flex-direction:column; gap:0.5rem; }
+  .provenance div { grid-template-columns:1fr; gap:0.125rem; }
+  /* `.statement` is a flex row with a `white-space: nowrap` eyebrow beside the
+     sentence. On a phone the eyebrow takes the width and pushes the sentence
+     off the page — and this is the caveat that must not be shrunk away. */
+  .statement { flex-direction:column; gap:0.5rem; }
+  /* Five nowrap links in a row that never wraps. */
+  .sitefoot .wrap { flex-direction:column; align-items:flex-start; gap:1rem; }
+  .sitefoot nav { flex-wrap:wrap; white-space:normal; gap:0.75rem 1.25rem; }
+}
+
+/* 6. Two rows of link-buttons in one `.section-head` — the requirement filters
+   and the product tabs. Run together at a uniform gap they read as one set of
+   seven unrelated controls, so the groups are spaced apart from each other
+   more than their members are, and wrap as units on a narrow screen. */
+.tabsets { display:flex; flex-wrap:wrap; gap:0.5rem 1.75rem; }
+.tabset { display:flex; flex-wrap:wrap; gap:0.5rem; }
+
+/* 7. Click-to-select on the connect commands.
+
+   There is no copy button because there is no JavaScript: Caddy serves
+   `default-src 'none'` with every page, static ones included, so a button
+   would be a control that visibly did nothing — which the handoff rules out by
+   name. `user-select: all` gets most of the way there without any of that: one
+   click selects the whole command, ready for the clipboard shortcut, and where
+   it is unsupported ordinary selection still works. */
+.selectable { -webkit-user-select:all; user-select:all; cursor:pointer; }
+/* A label and its command are one thing; the page rhythm is set a level up. */
+.stack.tight { gap:0.375rem; }
+/* A card whose preamble sits above a two-column split needs the two
+   parts held apart; `.card` has padding but no internal rhythm. */
+.card > .stack + .grid { margin-top:1.5rem; }
+
+/* The hidden table captions the reference markup uses. Straight from the
+   handoff's accessibility note. */
+.visually-hidden {
+  position:absolute; width:1px; height:1px; overflow:hidden;
+  clip:rect(0 0 0 0); white-space:nowrap;
+}

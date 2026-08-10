@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- GENERATED FILE — do not edit by hand.
+     Written by scripts/render_coverage.py from docs/coverage.yaml and the
+     catalogue in src/cra/regulation/. Edit those and regenerate. -->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage — what the CRA requires, and what we do — Skarp CRA</title>
+<meta name="description" content="Obligation by obligation: what the EU Cyber Resilience Act requires of a manufacturer, and what Skarp CRA does to help meet it.">
+<meta name="referrer" content="no-referrer">
+
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="/">Skarp CRA</a>
+    <nav>
+      <a href="/#covers">What it covers</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/billing">Billing</a>
+      <a class="btn cta small" href="/#access">Start free</a>
+    </nav>
+  </div>
+</header>
+<main>
+<section class="wrap">
+<div class="stack">
+<p class="eyebrow">Coverage</p>
+<h1>What the CRA requires, and what we do about it</h1>
+<p class="lede">Every obligation, with the tools that address it. Where we do
+nothing for an obligation, the row says so — this is the whole list, not the
+flattering part of it.</p>
+<p class="small muted">The tool does not carry your obligations; you do. It
+does not certify conformity, file your reports, or replace a notified body.
+What it does is put each requirement, the risk that makes it applicable and the
+evidence for it in front of the agent working in your repository.</p>
+<p class="small muted">Every obligation summary is a paraphrase, never a
+quotation. The Article 13 and 14 summaries were written against the published
+text on 2026-08-08; the Annex I and Annex VII
+entries are the catalogue this server itself runs on, reconciled on
+2026-08-06. Both against CELEX 32024R2847. Read them
+beside <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R2847">the authoritative text</a>, not instead of
+it — and note that Article 7(4) delegated acts can amend the annexes.</p>
+<p><a class="btn cta" href="/#access">Connect your agent</a> <a class="btn" href="/pricing">Pricing</a></p>
+</div>
+</section><section class="wrap">
+<div class="section-head">
+  <h2 id="article-13">Article 13 — Obligations of manufacturers</h2>
+</div>
+<p class="section-lede">Twenty-five paragraphs. These are the duties that attach to placing a product with digital elements on the EU market.</p>
+<dl class="coverage obligations">
+      <div>
+        <dt>13(1)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Ensure the product has been designed, developed and produced in accordance with the essential cybersecurity requirements in Annex I Part I.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Puts each of the 22 requirements in front of the agent working in your repository, together with the risk from your own assessment that makes it applicable and a note of what good evidence looks like. Status and reasoning are recorded per requirement, and evidence is stored by value and hashed with its provenance — a git SHA, a CI run, a tool and version. The engineering is yours; this is what turns each requirement into a specific, evidenced task next to the code rather than a line in a PDF.</p>
+            <p class="tools small muted mono">list_requirements · update_requirement · attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(2)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Undertake a cybersecurity risk assessment and take its outcome into account during planning, design, development, production, delivery and maintenance.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Your agent drafts risks from the codebase it is sitting in. You accept, amend or reject each one — a drafted risk determines nothing until <code>decide_risk</code> is called with a rationale. Confirming freezes a hashed version.</p>
+            <p class="tools small muted mono">start_risk_assessment · propose_risks · decide_risk · confirm_risk_assessment</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(3)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Document the assessment and update it during the support period. It must analyse risks based on intended purpose, reasonably foreseeable use and conditions of use, taking account of how long the product is expected to be in use; indicate whether and how the Annex I Part I(2) requirements apply and how they are implemented; and indicate how Part I(1) and the Part II vulnerability handling requirements are applied.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The four inputs the paragraph names are mandatory before an assessment can be confirmed. Each decided risk names the requirements it makes applicable, which becomes the recorded basis on each one, and an implementation note records how it is met. The assessment is derived stale when the product moves under it — a reclassification, a lifecycle change — so &quot;updated as appropriate&quot; has a trigger rather than a reminder. The paragraph&#x27;s last sentence is asked for separately and confirming is refused without it: the risks answer Part I(2), and how you apply Part I(1) and the Part II vulnerability handling requirements are statements about the whole product that no per-risk determination produces. Both freeze inside the hashed assessment, so Annex VII(3) cites all of 13(3) rather than two thirds of it.</p>
+            <p class="tools small muted mono">start_risk_assessment · decide_risk · confirm_risk_assessment · get_risk_assessment</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(4)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Include the risk assessment in the technical documentation. Where an essential requirement is not applicable, include a clear justification.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Annex VII(3) does not report complete without a confirmed, non-stale assessment, and marking a requirement not applicable is refused without a justification. Nothing is ever ruled out automatically: confirming an assessment marks the risk-named requirements applicable and leaves the rest undetermined, which still reads as a gap.</p>
+            <p class="tools small muted mono">assemble_technical_file · update_requirement</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(5)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Exercise due diligence when integrating third-party components, including free and open-source components, so they do not compromise the product&#x27;s cybersecurity.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Your SBOM is stored by value and checked daily against the OSV advisory database and CISA&#x27;s Known Exploited Vulnerabilities catalogue. That covers knowing what you ship and what is known to be wrong with it. There is no per-component record of diligence at the moment of adoption — what was checked, by whom, when.</p>
+            <p class="tools small muted mono">record_sbom · scan_advisories · list_advisory_candidates</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(6)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>On identifying a vulnerability in an integrated component, report it to whoever manufactures or maintains that component, and share any fix you developed.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. Confirming an advisory on a third-party component is the moment this duty arises and the tool knows it, but it does not prompt for the upstream report or record that you made one. Attach it as evidence against Annex I Pt II(2) in the meantime.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(7)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Systematically document relevant cybersecurity aspects, including vulnerabilities you become aware of and relevant information provided by third parties, and update the risk assessment where applicable.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Vulnerability and incident records carry status, severity and remediation references; advisory candidates from OSV and CISA KEV are the third-party half. Every change writes an attributed audit row in the same database transaction as the change itself, so a failed audit write fails the operation rather than leaving an unrecorded edit.</p>
+            <p class="tools small muted mono">record_vulnerability · update_vulnerability · get_recent_activity</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(8)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Handle vulnerabilities effectively during the support period, in accordance with Annex I Part II. Determine the support period from the expected time in use — at least five years unless the product is expected to be in use for less. Record what you took into account in the technical documentation, and have policies and procedures, including a coordinated vulnerability disclosure policy, for processing reported vulnerabilities.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Vulnerability handling is the Annex I Part II section below and the Article 14 clocks. Your coordinated vulnerability disclosure policy URL and security contact are recorded and checked before an incident rather than during one. The support period is recorded with its reasoning, which is the half of 13(8) people forget: the paragraph puts <em>the information taken into account</em> in the technical documentation, so a date alone leaves Annex VII(4) unmet even though it looks filled. A period under five years is refused unless you state the expected use time — the paragraph&#x27;s only exception, and one that has to be claimed rather than arrived at by choosing a nearer date. The floor is measured in calendar years, not elapsed days.</p>
+            <p class="tools small muted mono">set_support_period · set_submitter_profile · check_reporting_readiness</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(9)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Keep each security update available for at least 10 years after it is issued, or for the remainder of the support period if longer.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. Track update availability outside the tool.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(10)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Where substantially modified versions of a software product have been placed on the market, Annex I Pt II(2) compliance may be ensured for the latest version only, provided earlier users can reach it free of charge and without adjusting their environment.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. The position you take can be attached as evidence against Annex I Pt II(2) so it lives with the file rather than in someone&#x27;s head.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(11)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Where public archives of historical versions are maintained, clearly inform users of the risks of using unsupported software.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(12)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Before placing the product on the market: draw up the technical documentation, carry out (or have carried out) the conformity assessment procedure, and where conformity is demonstrated, draw up the EU declaration of conformity and affix the CE marking.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The technical file is assembled as an Annex VII gap report first and can then be frozen with a content hash. The Annex V declaration is generated bound to that hash, and a sign-off binds a named signatory to a specific version — editing afterwards shows as a stale signature rather than silently still valid. The conformity assessment procedure and the CE marking are acts you perform; where your product class requires a notified body, only that body can assess conformity.</p>
+            <p class="tools small muted mono">assemble_technical_file · generate_declaration_of_conformity · sign_off · get_conformity_status</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(13)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Keep the technical documentation and the EU declaration of conformity available to market surveillance authorities for at least 10 years after the product is placed on the market, or the support period if longer.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Evidence is stored by value rather than as a link that rots, the audit trail is append-only, and the statutory record is copied to an archive under S3 Object Lock with per-object retention never shorter than the ten years 13(13) requires. The technical file reports the date <em>your</em> documentation has to be kept until, computed from the release you placed on the market and your support period — and says the period has not started where you have placed nothing.</p>
+            <p class="tools small muted mono">attach_evidence · list_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(14)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Have procedures keeping series production in conformity, taking account of changes in the development or production process, in the product&#x27;s design or characteristics, and in the harmonised standards, certification schemes or common specifications the declaration relies on.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The risk assessment is derived stale on reclassification or a lifecycle change, and signatures go stale when the frozen file is edited. Nothing watches the harmonised standards themselves — they are recorded in the Annex VII(5) slot and not monitored for change.</p>
+            <p class="tools small muted mono">get_conformity_status · get_risk_assessment</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(15)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Ensure the product bears a type, batch or serial number allowing its identification, or that the information is on the packaging or an accompanying document.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. This is an identifier on the artefact or its packaging.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(16)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Indicate the manufacturer&#x27;s name and contact details on the product, its packaging or an accompanying document, and in the Annex II user information.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. A legal name and a security contact are recorded, but those serve Article 14 reporting and are a different obligation — do not treat one as evidence of the other.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(17)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Designate a single point of contact letting users communicate directly and rapidly, easily identifiable to users, allowing them to choose their means of communication rather than forcing automated tools.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The contact address is recorded and surfaced in reporting readiness. Whether it is easily identifiable and offers a choice of channel is an organisational fact the tool cannot check.</p>
+            <p class="tools small muted mono">set_submitter_profile</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(18)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Ensure the product is accompanied by the information and instructions to the user set out in Annex II, and keep them available for at least 10 years or the support period if longer.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>All fifteen items are a checklist, worked one at a time: nine numbered points with the six sub-points of point 8 listed separately, because each is a distinct thing a reader has to find. Each is either provided — with where a user actually finds it — or ruled out with a justification. Four are conditional in the annex&#x27;s own words, and those still need a reason, or &quot;where applicable&quot; becomes a way to empty the annex. Annex VII(1) reports the coverage item by item instead of accepting an attached document and hoping it says the right things. What the tool cannot do is read your manual and tell you whether it is true.</p>
+            <p class="tools small muted mono">list_user_information · update_user_information · attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(19)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Specify the end date of the support period, at least the month and year, clearly at the time of purchase; and where technically feasible, display a notification when the product reaches end of support.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The end date is recorded with the determination, and where you publish it can be recorded alongside — the tool cannot check that a page says what you think it says, but it keeps the address with the record. Everyone on the product is warned at 180, 90, 30 and 7 days, and once when the period passes. It cannot display a notice inside your product, which is the other half of this paragraph.</p>
+            <p class="tools small muted mono">set_support_period</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(20)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Provide either a copy of the EU declaration of conformity or a simplified one carrying the exact internet address of the full declaration.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Both forms. The simplified one is refused without the exact internet address of the full declaration, because that address is the entire reason 13(20) permits a short form — an address-less one is not a shorter declaration, it is a non-compliant one. It records the address exactly as given and never fetches it: the tool cannot confirm what is published there, and it says so rather than implying a check it did not make. It also carries the hash of the full declaration it points at, so re-issuing that one makes a stale short form detectable.</p>
+            <p class="tools small muted mono">generate_declaration_of_conformity · generate_simplified_declaration</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(21)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>On knowing or having reason to believe the product or your processes are not in conformity with Annex I, immediately take corrective measures, or withdraw or recall the product.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. There is no non-conformity record, so &quot;we knew, we did this, on this date&quot; has to be attached as evidence.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(22)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>On a reasoned request from a market surveillance authority, provide all information and documentation demonstrating conformity, and cooperate on measures to eliminate the risks posed.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The technical file is the dossier such a request asks for, and the evidence list enumerates what is held. There is no export package, and no record that a request was received, what was provided, and when.</p>
+            <p class="tools small muted mono">assemble_technical_file · list_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(23)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>A manufacturer ceasing operations must inform the relevant market surveillance authorities, and as far as possible the users, before the cessation takes effect.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. A one-off business event discharged by writing to people.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>13(25)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Market surveillance authorities may request the software bill of materials for a dependency assessment conducted by ADCO.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The SBOM is stored by value, so it can be produced on request in the form it was given.</p>
+            <p class="tools small muted mono">record_sbom</p>
+          </div>
+        </dd>
+      </div>
+</dl>
+</section><section class="wrap">
+<div class="section-head">
+  <h2 id="article-14">Article 14 — Reporting obligations of manufacturers</h2>
+</div>
+<p class="section-lede">This is what applies from 11 September 2026, and it is the half with a clock on it. Every deadline here runs from when you became aware, however that happened — a researcher, a customer, your own testing, or the daily scan described below. The regulation does not oblige you to go looking, and nothing here is a guarantee that you will find out in time. These tools and the scanning are free — nobody should meet a paywall while a 24-hour statutory clock is running.</p>
+<dl class="coverage obligations">
+      <div>
+        <dt>14(1), 14(3)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Notify any actively exploited vulnerability, and any severe incident affecting the product&#x27;s security, simultaneously to the CSIRT designated as coordinator and to ENISA, via the Single Reporting Platform.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>This obligation triggers on becoming <em>aware</em>, and the daily SBOM scan is one of the ways you do: your components are checked against CISA&#x27;s Known Exploited Vulnerabilities catalogue, and a match is flagged as exploited and mailed to everyone on the product. A feed match is a candidate, never a record — version ranges over-match, and opening an incident from one would put a spurious notification in front of a CSIRT. Confirming it is the act that starts the clocks, and it will not accept a confirmation without a rationale saying what you checked. Awareness then anchors on when the tool told you rather than on when you got round to confirming, so a slow response cannot quietly understate how long you had known. Marking any vulnerability actively exploited does the same thing; a severe incident can be opened directly. The tool never submits anything — you file on the Single Reporting Platform under your own EU Login, and record the submission reference here afterwards. Recording a submission is not a submission.</p>
+            <p class="tools small muted mono">scan_advisories · confirm_advisory · record_vulnerability · update_vulnerability · report_incident · record_report_submission</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>14(2), 14(4)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>For a vulnerability: an early warning within 24 hours of becoming aware, a notification within 72 hours, and a final report no later than 14 days after a corrective or mitigating measure is available. For a severe incident: the same 24-hour and 72-hour stages, and a final report within one month.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>All stages are derived from when you became aware, never from when the tool was called; omitting the awareness timestamp anchors on now and says so in the response. The 14-day final report is anchored on the date a corrective measure became available, and does not materialise until you record one. The one-month final report is anchored on awareness rather than on the 72-hour notification — where the reading is ambiguous, the earlier deadline is the safe one. Status is derived from stored timestamps, so a sweeper outage cannot mark you compliant.</p>
+            <p class="tools small muted mono">get_reporting_deadlines · update_vulnerability</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>14(2), 14(4) — content</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Each stage has required content: the Member States where the product is available, the nature of the exploit, corrective measures taken and available to users, severity and impact, and information about any malicious actor.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Drafts are produced in ENISA&#x27;s own field layout. A draft always comes out — missing fields are listed beside it, never instead of it, because a report you cannot see is worse than one with holes you can.</p>
+            <p class="tools small muted mono">draft_report · check_reporting_readiness</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>14(5)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>An incident is severe where it affects the product&#x27;s ability to protect the availability, authenticity, integrity or confidentiality of sensitive or important data or functions, or where it has led or could lead to malicious code being introduced or executed.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The severity call is yours. The tool records which kind you chose, because the two differ only in the final-report deadline and that difference is legal rather than cosmetic.</p>
+            <p class="tools small muted mono">report_incident</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>14(6)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>The coordinating CSIRT may request an intermediate report on status updates.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. There is no intermediate-report stage; attach the report you sent as evidence.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>14(7)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Notifications go to the CSIRT of the Member State of your main establishment, via one of the platform&#x27;s electronic notification end-points; where there is no main establishment in the Union, a fallback order determines which.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The rule is stated and the Member States where your product is available are recorded, since that is an obligatory report field. The tool does not name your CSIRT: the platform routes on the registration details you give it, so the answer is settled when you register, not per report.</p>
+            <p class="tools small muted mono">get_applicable_csirt · set_submitter_profile</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>14(8)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>After becoming aware, inform the impacted users of the vulnerability or incident and, where necessary, of the mitigation and corrective measures they can deploy.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. This runs in parallel with the CSIRT clocks and is easy to lose behind them; attach what you sent as evidence.</p>
+          </div>
+        </dd>
+      </div>
+</dl>
+</section><section class="wrap">
+<div class="section-head">
+  <h2 id="part-i">Annex I Part I — Essential cybersecurity requirements</h2>
+</div>
+<p class="section-lede">Fourteen properties of the product itself: the software either encrypts data at rest or it does not, and no compliance tool changes that. For twelve of them the honest ceiling is the same — the tool records whether your assessment makes the requirement applicable and why, holds the evidence that the engineering happened, hashed with its provenance, and reports a gap in the technical file until it is there. It cannot make the software behave this way, and a tick against one of these means only that somebody attached a document. What it does do is put the requirement, and the risk from your own assessment that triggered it, in front of the agent writing the code. The two rows where the answer is different are I(1) and I(2)(a).
+Evidence is tied to the release it describes, because these requirements attach to the product *as placed on the market* — a test report proves something about one build. Record a new release and anything evidenced only against an earlier one reports as stale and stops the technical file reporting it settled. Evidence carrying no release at all is reported as unversioned rather than stale: the tool does not know which build it describes, and saying so beats guessing.</p>
+<dl class="coverage obligations">
+      <div>
+        <dt>Annex I Pt I(1)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Designed, developed and produced to ensure an appropriate level of cybersecurity based on the risks.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The risk assessment this requirement is judged against is the one your agent drafted from your codebase and you confirmed. Whether the resulting engineering is appropriate is a judgement no tracker makes — the tool holds the assessment, the decisions and the evidence.</p>
+            <p class="tools small muted mono">confirm_risk_assessment · attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(a)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Made available on the market without known exploitable vulnerabilities.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The one Part I requirement with a mechanism rather than an evidence slot. Your SBOM is checked daily against the OSV database — <em>every</em> advisory affecting a component you ship, not only the exploited ones — and separately against CISA&#x27;s Known Exploited Vulnerabilities catalogue, which flags the subset known to be under attack. Severity is carried through from the advisory where it has one and left blank where it does not, because a fabricated score on a compliance record is worse than no score. Every match is a candidate you work to a disposition, and a dismissal needs a VEX justification — that the vulnerable code is not in the execute path, cannot be controlled by an adversary, or is already mitigated. Each of those is a statement that the vulnerability lacks the potential to be effectively used under practical operational conditions, which is the Article 3(41) test this requirement turns on, so the record of having worked a candidate is the evidence the product shipped without a known exploitable vulnerability. Note the distinction: KEV lists what is <em>actively exploited</em>, which is a narrower set than <em>exploitable</em>, so a clean KEV result does not answer this requirement on its own.
+This requirement is about a <em>moment</em> — being made available on the market — so <code>record_release</code> is where it is answered. Recording a version checks that a scan actually ran, that it reached its feeds, that it is recent, and that no candidate is still unresolved, then freezes the result as evidence tied to that version. It refuses when the record cannot support the claim, which is not a finding that your product is affected. You can ship anyway with a written reason, and that reason is kept on the determination and in the audit trail. What is found afterwards does not make a shipped release non-conformant: that is Article 13(8) and Annex I Part II(2).
+Candidates are ordered by EPSS, the daily model of how likely a CVE is to be exploited in the next 30 days, so the queue is worked in an order that means something. There is no threshold anywhere: a cutoff would be a compliance policy dressed as a fact, and every candidate still needs a determination. Both numbers are shown, because probability alone misleads — 5% sounds negligible and can be the 92nd percentile among all scored CVEs. A CVE the model has not scored is shown as unscored rather than as a low score. If the predicted likelihood of something you dismissed rises materially, it comes back for a second look, carrying both the old and new figures. EPSS informs that judgement and never makes it: it cannot dismiss anything, and it is never on its own a reason to.</p>
+            <p class="tools small muted mono">record_sbom · scan_advisories · confirm_advisory · dismiss_advisory · record_release</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(b)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Secure by default configuration, including the ability to reset the product to its original state — unless otherwise agreed between manufacturer and business user for a tailor-made product.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(c)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Vulnerabilities can be addressed through security updates, including automatic updates where applicable, with opt-out and the option to postpone.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(d)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Protection from unauthorised access by appropriate control mechanisms, including authentication and access management, and reporting of possible unauthorised access.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(e)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Confidentiality of stored, transmitted or processed data, such as by state-of-the-art encryption at rest and in transit.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(f)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Integrity of stored, transmitted or processed data, commands, programs and configuration against unauthorised manipulation, and reporting of corruption.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(g)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Data minimisation — process only data adequate, relevant and limited to what is necessary for the intended purpose.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(h)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Availability of essential and basic functions, including resilience and mitigation against denial-of-service.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(i)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Minimise the product&#x27;s negative impact on the availability of services provided by other devices or networks.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(j)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Limit attack surfaces, including external interfaces.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(k)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Reduce the impact of an incident using appropriate exploitation mitigation mechanisms and techniques.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(l)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Provide security-related information by recording and monitoring relevant internal activity, with an opt-out for the user.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt I(2)(m)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Allow users to securely and permanently remove all data and settings, and to transfer data securely where that is possible.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Applicability recorded from your own risk assessment, evidence held by value with its provenance and tied to the release it describes, and a gap reported in the technical file until it is there.</p>
+          </div>
+        </dd>
+      </div>
+</dl>
+</section><section class="wrap">
+<div class="section-head">
+  <h2 id="part-ii">Annex I Part II — Vulnerability handling requirements</h2>
+</div>
+<p class="section-lede">Eight vulnerability handling requirements. These are a process rather than a property, which is why more of this section can be carried by tooling.</p>
+<dl class="coverage obligations">
+      <div>
+        <dt>Annex I Pt II(1)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Identify and document vulnerabilities and components, including a software bill of materials in a commonly used machine-readable format covering at least the top-level dependencies.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Both halves are done rather than recorded: the bill of materials is stored by value, and the daily scan is the identification half against it.</p>
+            <p class="tools small muted mono">record_sbom · scan_advisories · list_advisory_candidates</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt II(2)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Address and remediate vulnerabilities without delay, providing security updates separately from functionality updates where technically feasible.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Vulnerability records carry status and a remediation reference, and confirmed advisories become records to work. The remediation is engineering; the tracking is here. There is no clock on &quot;without delay&quot; — unlike Article 14, the regulation sets no deadline, which is exactly why it drifts.</p>
+            <p class="tools small muted mono">record_vulnerability · update_vulnerability · confirm_advisory</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt II(3)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Apply effective and regular tests and reviews of product security.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Evidence only. A single test report satisfies the checklist indefinitely: the requirement says effective and <em>regular</em>, and cadence is not modelled.</p>
+            <p class="tools small muted mono">attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt II(4)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Once a security update is available, publicly disclose information about fixed vulnerabilities — description, affected versions, impact, severity, and how users remediate.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Nothing. The tool holds every input — the vulnerability, the affected component, the fix reference, the severity — and the dismissal path already produces VEX for <em>not affected</em>, but the <em>affected and fixed</em> advisory is not generated.</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt II(5)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Put in place and enforce a coordinated vulnerability disclosure policy.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The policy URL is recorded and surfaced by the readiness check before an incident rather than during one. It is never fetched, so a URL that 404s satisfies the field and not the requirement.</p>
+            <p class="tools small muted mono">set_submitter_profile · check_reporting_readiness</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt II(6)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Facilitate sharing of information about potential vulnerabilities, including a contact address for reporting vulnerabilities found in the product.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>The security contact address is recorded alongside the disclosure policy.</p>
+            <p class="tools small muted mono">set_submitter_profile</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt II(7)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Provide mechanisms to securely distribute updates so vulnerabilities are fixed or mitigated in a timely and, where applicable, automated manner.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Evidence only. The security of your update channel is a property of the channel.</p>
+            <p class="tools small muted mono">attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I Pt II(8)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Disseminate security updates without delay and free of charge, with advisory messages telling users what action to take.</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Evidence only. Dissemination and the advisory messages that accompany an update happen outside the tool.</p>
+            <p class="tools small muted mono">attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+</dl>
+</section><section class="wrap">
+<div class="section-head">
+  <h2 id="annex-vii">Annex VII — Technical documentation</h2>
+</div>
+<p class="section-lede">The eight sections the technical file has to contain. Assembled as a gap report first — what is missing matters more than the prose — and freezable with a content hash once it is complete.</p>
+<dl class="coverage obligations">
+      <div>
+        <dt>Annex VII(1)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>General description of the product</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Assembled from what you recorded about the product — its intended purpose, where it runs, and the class you settled. Annex II user information is one line here, satisfied by attachment.</p>
+            <p class="tools small muted mono">classify_product · attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII(2)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Design, development, production and vulnerability handling processes</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Evidence, attached against the processes it describes.</p>
+            <p class="tools small muted mono">attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII(3)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Cybersecurity risk assessment</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Filled from the confirmed assessment itself, not a summary of it. The slot does not report complete while the assessment is a draft or has gone stale.</p>
+            <p class="tools small muted mono">confirm_risk_assessment</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII(4)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Support period determination</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Filled from the Article 13(8) determination rather than an attachment. It completes only when both the dates and the reasoning are recorded, because the reasoning is what this section is for.</p>
+            <p class="tools small muted mono">set_support_period</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII(5)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Standards and specifications applied</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Recorded as evidence. The standards listed here are not monitored for change — see 13(14).</p>
+            <p class="tools small muted mono">attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII(6)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Test reports</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Test reports attached as evidence, hashed with their provenance.</p>
+            <p class="tools small muted mono">attach_evidence</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII(7)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>EU Declaration of Conformity</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Generated from the frozen file and bound to its content hash.</p>
+            <p class="tools small muted mono">generate_declaration_of_conformity</p>
+          </div>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII(8)</dt>
+        <dd>
+          <div class="obligation">
+            <p class="lbl">The obligation</p>
+            <p>Software bill of materials</p>
+          </div>
+          <div class="support">
+            <p class="lbl">What Skarp CRA does</p>
+            <p>Filled from the bill of materials you recorded, stored by value.</p>
+            <p class="tools small muted mono">record_sbom</p>
+          </div>
+        </dd>
+      </div>
+</dl>
+</section><section class="wrap">
+<p class="small muted">Reconciled against the published text on 2026-08-06 (oldest of the catalogue files). The summaries are still paraphrases, not quotations — cite the link for authoritative wording. Article 7(4) delegated acts can amend the annexes, so this is true as of that date.</p>
+</section>
+</main>
+<footer class="sitefoot">
+  <div class="wrap">
+    <p>Skarp CRA is a working aid. It records what you have decided and evidenced and shows what is missing; it cannot certify conformity or replace a notified body.</p>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/coverage">Coverage</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="mailto:cra@skarp.app">cra@skarp.app</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

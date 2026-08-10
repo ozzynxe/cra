@@ -1,0 +1,33 @@
+# Copy to /home/ubuntu/cra/compose.yml ON THE HOST and edit.
+#
+# Deliberately NOT rsynced by deploy.sh — it names the network and the env file
+# for that particular box, and overwriting a host's compose from a laptop is how
+# you lose a working configuration.
+
+services:
+  cra:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: cra
+    restart: unless-stopped
+    env_file: .env
+    # Not published to the host. Caddy reaches it by container name over the
+    # shared network — this store holds unreported exploited-vulnerability
+    # details, so it must not be listening on a public interface even by
+    # accident.
+    expose:
+      - "8000"
+    networks:
+      - deploy_default
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  # The network the Caddy / Postgres / Redis containers already share. External
+  # so this stack joins rather than creating a second, isolated one.
+  deploy_default:
+    external: true

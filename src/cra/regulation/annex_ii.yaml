@@ -1,0 +1,221 @@
+# Annex II to Regulation (EU) 2024/2847 — information and instructions to the
+# user.
+#
+# Article 13(18) requires the product to be *accompanied by* these, in paper or
+# electronic form, in a language users and market surveillance authorities can
+# easily understand, and kept available for ten years or the support period,
+# whichever is longer. Article 13(16) and 13(17) each add that a specific piece
+# of information must "also be included in the information and instructions to
+# the user set out in Annex II" — which is why items 1 and 2 below are also
+# reachable from those paragraphs.
+#
+# PROVENANCE
+#
+# Transcribed and reconciled against the published text on 2026-08-08, fetched
+# from the Publications Office as CELEX 32024R2847:
+#
+#   curl -H 'Accept: application/xhtml+xml' -H 'Accept-Language: eng' \
+#     https://publications.europa.eu/resource/celex/32024R2847
+#
+# Use that route rather than eur-lex.europa.eu, which sits behind a bot
+# challenge answering a non-browser client with HTTP 202 and an empty body — a
+# failure that looks like an empty document rather than a refusal.
+#
+# THE SHAPE OF THE ANNEX, AND WHAT THIS FILE DOES TO IT
+#
+# The annex is nine numbered points, and point 8 is "detailed instructions or
+# an internet address referring to such detailed instructions and information
+# on:" followed by six lettered sub-points. Those six are flattened here into
+# annex_ii.8.a … annex_ii.8.f, exactly as `annex_i.yaml` flattens Annex I Part
+# I(2)(a)–(m): each is a separate thing a reader has to find, so each is a
+# separate thing to check. `annex_ii.8` itself is kept as the chapeau, because
+# it carries a requirement of its own — the instructions must either be
+# supplied or reachable at a stated address.
+#
+# CONDITIONAL ITEMS
+#
+# The chapeau says "At minimum, the product with digital elements shall be
+# accompanied by", so the default is mandatory. Four items carry their own
+# condition in the text and are marked `conditional` with the condition quoted:
+#
+#   6      "where applicable" — an internet address for the EU DoC
+#   8(e)   only where Annex I Pt I(2)(c) automatic updates apply
+#   8(f)   only where the product is intended for integration into others
+#   9      "If the manufacturer decides to make available the SBOM"
+#
+# `conditional` is a statement about the regulation, not permission to skip:
+# ruling one out still takes an explicit `not_applicable` with a justification,
+# the same discipline `update_requirement` applies to Annex I.
+#
+# The summaries are deliberate paraphrases, not quotations, and every consumer
+# must present them beside a link to the authoritative text. Re-verify after
+# any delegated act under Article 7(4), and do not set `source_verified` by
+# inspection — fetch the text.
+
+celex: "32024R2847"
+title: Regulation (EU) 2024/2847 (Cyber Resilience Act)
+source_verified: true
+verified_at: "2026-08-08"
+verified_against: https://publications.europa.eu/resource/celex/32024R2847
+applies_from: "2027-12-11"
+
+anchor: Annex II
+heading: Information and instructions to the user
+chapeau: >-
+  At minimum, the product with digital elements shall be accompanied by the
+  following.
+
+items:
+  - id: annex_ii.1
+    anchor: Annex II(1)
+    summary: >-
+      The manufacturer's name, registered trade name or trademark, postal
+      address, email address or other digital contact, and where available the
+      website at which the manufacturer can be contacted.
+    evidence_hint: >-
+      The page or document a user actually receives, not an internal record of
+      the address. Article 13(16) requires the same details on the product, its
+      packaging or an accompanying document as well — these are two obligations
+      and one of them is not evidence of the other.
+    also_required_by: Article 13(16)
+
+  - id: annex_ii.2
+    anchor: Annex II(2)
+    summary: >-
+      The single point of contact where vulnerabilities in the product can be
+      reported and received, and where the manufacturer's coordinated
+      vulnerability disclosure policy can be found.
+    evidence_hint: >-
+      The published contact and the CVD policy URL as a user reaches them.
+      `set_submitter_profile` records both for reporting purposes; that is the
+      manufacturer's own record and not the user-facing artefact this asks for.
+    also_required_by: Article 13(17)
+
+  - id: annex_ii.3
+    anchor: Annex II(3)
+    summary: >-
+      Name, type and any additional information enabling unique identification
+      of the product.
+    evidence_hint: >-
+      Whatever lets a reader tell this product and version apart from its
+      siblings. Article 13(15) separately requires a type, batch or serial
+      number on the artefact itself.
+
+  - id: annex_ii.4
+    anchor: Annex II(4)
+    summary: >-
+      The intended purpose, including the security environment the manufacturer
+      provides, the product's essential functionalities, and information about
+      its security properties.
+    evidence_hint: >-
+      The user-facing statement of what the product is for and what it protects.
+      The intended purpose recorded on the risk assessment is the same fact
+      written for a different reader; this one has to be in the user's hands.
+
+  - id: annex_ii.5
+    anchor: Annex II(5)
+    summary: >-
+      Any known or foreseeable circumstance, related to use in accordance with
+      the intended purpose or under reasonably foreseeable misuse, which may
+      lead to significant cybersecurity risks.
+    evidence_hint: >-
+      The accepted risks from the Article 13(2) assessment are the natural
+      source, but this is the version written for a user rather than an
+      auditor — and only those that lead to *significant* risk in normal or
+      foreseeable use.
+
+  - id: annex_ii.6
+    anchor: Annex II(6)
+    summary: >-
+      Where applicable, the internet address at which the EU declaration of
+      conformity can be accessed.
+    conditional: true
+    condition: >-
+      "where applicable" — in practice, where the declaration is published
+      online rather than shipped as a copy.
+    evidence_hint: >-
+      The same address the Article 13(20) simplified declaration carries.
+      `generate_simplified_declaration` records it on the product.
+
+  - id: annex_ii.7
+    anchor: Annex II(7)
+    summary: >-
+      The type of technical security support offered, and the end date of the
+      support period during which users can expect vulnerabilities to be
+      handled and security updates to be provided.
+    evidence_hint: >-
+      The end date as a user sees it. `set_support_period` records the
+      determination and its reasoning for the technical file; Article 13(19)
+      additionally wants the date clear to a buyer at the time of purchase.
+
+  - id: annex_ii.8
+    anchor: Annex II(8)
+    summary: >-
+      Detailed instructions, or an internet address referring to such detailed
+      instructions, covering points (a) to (f) below.
+    evidence_hint: >-
+      Either the instructions themselves or the address at which they live. The
+      six sub-points are listed separately because each is a distinct thing a
+      reader has to be able to find.
+
+  - id: annex_ii.8.a
+    anchor: Annex II(8)(a)
+    summary: >-
+      The measures necessary during initial commissioning and throughout the
+      product's lifetime to ensure secure use.
+
+  - id: annex_ii.8.b
+    anchor: Annex II(8)(b)
+    summary: How changes to the product can affect the security of data.
+
+  - id: annex_ii.8.c
+    anchor: Annex II(8)(c)
+    summary: How security-relevant updates can be installed.
+
+  - id: annex_ii.8.d
+    anchor: Annex II(8)(d)
+    summary: >-
+      Secure decommissioning of the product, including how user data can be
+      securely removed.
+    evidence_hint: >-
+      Pairs with Annex I Pt I(2)(m), which requires the capability. This is the
+      instruction telling a user how to use it.
+
+  - id: annex_ii.8.e
+    anchor: Annex II(8)(e)
+    summary: >-
+      How the default setting enabling automatic installation of security
+      updates can be turned off.
+    conditional: true
+    condition: >-
+      Applies where Annex I Pt I(2)(c) automatic security updates apply to the
+      product.
+
+  - id: annex_ii.8.f
+    anchor: Annex II(8)(f)
+    summary: >-
+      Where the product is intended for integration into other products, the
+      information an integrator needs to comply with the Annex I essential
+      requirements and the Annex VII documentation requirements.
+    conditional: true
+    condition: >-
+      Applies where the product is intended for integration into other products
+      with digital elements.
+    evidence_hint: >-
+      The integrator-facing security documentation. This is the item a library
+      or component vendor is most likely to owe and least likely to have.
+
+  - id: annex_ii.9
+    anchor: Annex II(9)
+    summary: >-
+      Where the manufacturer chooses to make the software bill of materials
+      available to users, information on where it can be accessed.
+    conditional: true
+    condition: >-
+      "If the manufacturer decides to make available the software bill of
+      materials to the user" — publishing the SBOM to users is optional; saying
+      where it is, once you do, is not.
+    evidence_hint: >-
+      Only the *location*. Article 13(25) separately lets a market surveillance
+      authority request the SBOM itself, which is a different audience and a
+      different obligation.

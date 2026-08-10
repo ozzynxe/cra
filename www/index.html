@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skarp CRA — EU Cyber Resilience Act compliance, inside your agent</title>
+<meta name="description" content="Get a product ready for the EU Cyber Resilience Act — free for one product until you place it on the market. Scope classification, the Article 13(2) risk assessment, Annex I evidence, daily SBOM scanning, the statutory reporting clocks and the Annex VII technical file, as an MCP server your coding agent connects to in one line.">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="/">Skarp CRA</a>
+    <nav>
+      <a href="#covers">What it covers</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/app">Sign in</a>
+      <a class="btn cta small" href="#access">Start free</a>
+    </nav>
+  </div>
+</header>
+<main>
+
+  <!-- ==================================================================
+       i. What this is.
+
+       The page answers four questions in order: what it is, what it
+       covers, what it costs, how to start. Everything that used to sit
+       between them — six numbered steps, eight feature cards, a FAQ —
+       said the same things again in a different voice.
+       ================================================================== -->
+  <section class="wrap">
+    <div class="split" id="hero">
+      <div class="stack">
+        <p class="eyebrow">Regulation (EU) 2024/2847</p>
+        <h1>The Cyber Resilience Act, worked out where your code is.</h1>
+        <p class="lede">Skarp CRA is an MCP server your coding agent connects
+        to. It works out whether the CRA applies to what you ship and what it
+        demands, then holds the record: the risk assessment, the Annex I
+        requirements with their evidence, the statutory reporting clocks, and
+        the Annex VII technical file.</p>
+        <!-- "Why an agent" was a section of its own. It is one sentence, and
+             this is the sentence. -->
+        <p>The answers the regulation wants are already in your repository —
+        the components you ship, what changed this release, how it is deployed.
+        An agent sitting there can draft from the real thing rather than from
+        memory, and you decide every answer it proposes.</p>
+        <!-- Was a full-width 2px framed statement. Same words, in the flow:
+             a covered-features table three screens down makes this sentence
+             more load-bearing, not less, so it stays above it. -->
+        <p><strong>It will never tell you that you are compliant.</strong>
+        Conformity is your declaration to make, and for some product classes a
+        notified body's. This records what you have decided and evidenced, and
+        shows what is missing.</p>
+        <p><a class="btn cta" href="#access">Connect your agent</a> <a class="btn" href="/sample-report">Read a sample report</a></p>
+        <p class="small muted">Free for one product, with your whole team, until
+        you place it on the market. No card, and no account to create first.</p>
+      </div>
+      <!-- Genuine tabular data: dates against obligations. Keep it a table
+           rather than styled divs, so it reads correctly to a screen reader. -->
+      <div class="stack">
+        <table class="dates">
+          <caption>What is due, and when</caption>
+          <tbody>
+            <tr>
+              <th scope="row">11 Sept<br>2026</th>
+              <td>Reporting obligations apply. An actively exploited vulnerability
+              or a severe incident means a 24&nbsp;h early warning, a 72&nbsp;h
+              notification and a 14&nbsp;day final report, filed to your CSIRT via
+              ENISA's Single Reporting Platform. The clock starts when you become
+              <em>aware</em> — not when someone gets round to filing.</td>
+            </tr>
+            <tr>
+              <th scope="row">11 Dec<br>2027</th>
+              <td>Full application. Products with digital elements may not be placed
+              on the EU market without secure-by-design and vulnerability handling,
+              technical documentation, conformity assessment, an EU Declaration of
+              Conformity, CE marking, and a support period of at least five years.</td>
+            </tr>
+          </tbody>
+          <tfoot><tr><td colspan="2">Article 64 sets administrative fines reaching €15M or 2.5% of worldwide annual turnover.</td></tr></tfoot>  <!-- screen: allow: Article 64's statutory fine, a fact about the regulation -->
+        </table>
+        <!-- States the constraint rather than the countdown: the reporting
+             window is too short to prepare inside. Still true after
+             September 2026, which a countdown would not be. -->
+        <p class="small muted">The first of those windows is 24 hours long, and
+        EU Login enrolment and Single Reporting Platform registration cannot be
+        arranged inside it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       ii. What it covers.
+
+       Covered obligations only, which is a shape that quietly implies the
+       rest are handled. It is not, and the closing paragraph links to the
+       page that says so — /coverage, generated from the same engineering
+       documents that call Art 13(8) the biggest gap.
+
+       Every claim in this table is checked against those documents. Two
+       phrasings in particular are not interchangeable with shorter ones:
+       the advisory row must not say "known exploitable vulnerabilities"
+       (Art 3(41) is a much wider set than CISA KEV's Art 3(42), so a clean
+       scan proves nothing about Annex I I(2)(a)), and the reporting row
+       must say drafts rather than files.
+       ================================================================== -->
+  <section class="wrap" id="covers">
+    <div class="section-head">
+      <h2>What it covers</h2>
+      <p class="small muted">Each obligation, and the tools that carry it</p>
+    </div>
+    <dl class="coverage">
+      <div>
+        <dt>Annex III &amp; IV<span class="rowsub small muted">Scope and product class</span></dt>
+        <dd>
+          <p>Works the classification question through with you and records the
+          answer with its reasoning — important, default, critical, or out of
+          scope. That decision is what determines whether you need a notified
+          body, so it is indicative and never guessed from a product name.</p>
+          <p class="tools small muted mono">classify_product</p>
+        </dd>
+      </div>
+      <div>
+        <dt>Article 13(2)–(4)<span class="rowsub small muted">Risk assessment</span></dt>
+        <dd>
+          <p>Your agent drafts risks from the codebase it is sitting in; you
+          accept, amend or reject each one, and nothing counts until you decide.
+          Confirming freezes a hashed version, and it goes stale when the product
+          moves — a reclassification, a lifecycle change.</p>
+          <p class="tools small muted mono">start_risk_assessment · propose_risks · decide_risk · confirm_risk_assessment</p>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I<span class="rowsub small muted">The 22 essential requirements</span></dt>
+        <dd>
+          <p>The assessment decides which requirements apply and why — nothing is
+          ever auto-ruled-out. Evidence is stored by value and hashed with its
+          provenance: a git SHA, a CI run, a tool and version. This tracks whether
+          the engineering happened; it does not do the engineering.</p>
+          <p class="tools small muted mono">list_requirements · update_requirement · attach_evidence</p>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex I I(2)(a), II(1)<span class="rowsub small muted">Components and SBOM</span></dt>
+        <dd>
+          <p>Your bill of materials, checked daily against the OSV advisory
+          database and CISA's Known Exploited Vulnerabilities catalogue: which
+          components carry known advisories, and which of those are actively
+          exploited. A match is a candidate for you to work, never a record — so
+          a scan cannot put a spurious notification in front of a CSIRT.</p>
+          <p class="tools small muted mono">record_sbom · scan_advisories · confirm_advisory · dismiss_advisory</p>
+        </dd>
+      </div>
+      <div>
+        <dt>Article 14<span class="rowsub small muted">Reporting clocks</span></dt>
+        <dd>
+          <p>24&nbsp;hour early warning, 72&nbsp;hour notification, 14&nbsp;day
+          final report — anchored on when you became <em>aware</em>, not when the
+          tool was called, with escalating reminders to everyone on the product.
+          Drafts come out in ENISA's own field layout. You file them yourself, on
+          the Single Reporting Platform under your own EU Login.</p>
+          <p class="tools small muted mono">record_vulnerability · report_incident · get_reporting_deadlines · draft_report</p>
+        </dd>
+      </div>
+      <div>
+        <dt>Annex VII &amp; Annex V<span class="rowsub small muted">Technical file and DoC</span></dt>
+        <dd>
+          <p>All eight Annex VII sections as a gap report first, because what is
+          missing matters more than the prose. Freezing computes a content hash;
+          a signature binds to that hash, so a later edit shows as stale rather
+          than silently still valid.</p>
+          <p class="tools small muted mono">assemble_technical_file · generate_declaration_of_conformity · sign_off</p>
+        </dd>
+      </div>
+      <div>
+        <dt>Article 13(13)<span class="rowsub small muted">Ten-year retention</span></dt>
+        <dd>
+          <p>Every change to a product's compliance record writes an audit row
+          naming the agent that acted and the person accountable. Evidence is kept by value rather than as a link that
+          rots, and the statutory record is copied to a locked archive with
+          per-object retention never shorter than ten years. Under the CRA
+          the trail is the deliverable, so a failed audit write fails the operation
+          it was recording.</p>
+        </dd>
+      </div>
+    </dl>
+    <p class="section-foot">That is the shape of it. The
+    <a href="/coverage">full coverage page</a> goes through every obligation in
+    Articles 13 and 14, all 22 Annex I requirements and all eight Annex VII
+    sections — what the law requires, and what we do about each one, including
+    the ones where the answer is that we do nothing yet.</p>
+  </section>
+
+  <!-- ==================================================================
+       iii. Free and paid.
+
+       One gate: CONFORMITY (server/entitlements.py) — freezing the file,
+       the declaration, sign-off, record_release, set_support_period. Plus
+       the one-product cap. State the cap here, or the free column
+       promises something the server refuses.
+       ================================================================== -->
+  <section class="wrap" id="plans">
+    <div class="section-head">
+      <h2>What is free, and what is not</h2>
+      <p class="small muted">Free until you place it on the market. Pay to sign.</p>
+    </div>
+    <div class="grid cols-2">
+      <div class="card keyline">
+        <h3>Free — one product, your whole team</h3>
+        <ul>
+          <li>Scope and Annex III/IV classification, recorded with its reasoning</li>
+          <li>The Article 13(2) risk assessment, and every revision of it as the product changes</li>
+          <li>All 22 Annex I requirements and the Annex II user information, with your evidence recorded against them</li>
+          <li>Your SBOM scanned daily against OSV and CISA KEV, with EPSS on what it finds</li>
+          <li>The Article 14 clocks and ENISA drafts, if something happens</li>
+          <li>The Annex VII technical file as a gap report — every section, with what is missing named</li>
+        </ul>
+        <p class="small muted">Not a trial. It is the whole job of getting ready,
+        for as long as getting ready takes — and we do not charge per person, so
+        everyone who makes a decision is in the audit trail under their own name.</p>
+      </div>
+      <div class="card keyline">
+        <h3>Paid — placing it on the market</h3>
+        <ul>
+          <li>Freezing the Annex VII technical file to a content hash</li>
+          <li>Drawing up the EU Declaration of Conformity, and the Article 13(20) simplified form</li>
+          <li>Sign-off, with segregation of duties if you want it</li>
+          <li>Recording a release, through the Annex I Pt I(2)(a) gate</li>
+          <li>The Article 13(8) support period, and alerts as it ends</li>
+          <li>More than one product</li>
+        </ul>
+        <p class="small muted">The legal act, in other words — the things that
+        turn a working record into something you would hand a market
+        surveillance authority. <a href="/pricing">See pricing</a>.</p>
+      </div>
+    </div>
+    <p class="section-foot small muted">Being refused a paid tool is never a statement about
+    your product. It means this service is not tracking that for you, which is a
+    different sentence.</p>
+  </section>
+
+  <!-- ==================================================================
+       iv. Getting started.
+
+       The commands are `user-select: all`, so one click selects the whole
+       line ready for a clipboard shortcut. There is no copy button because
+       there is no JavaScript — the CSP served with every page is
+       `default-src 'none'`, and a button that did nothing would be worse
+       than no button.
+
+       The id stays `access`: every other page's "Start free" points here.
+       ================================================================== -->
+  <section class="wrap" id="access">
+    <div class="card keyline">
+      <div class="stack">
+        <h2>Getting started</h2>
+        <p class="muted">Add the server to any MCP client. It asks for your
+        email, sends a six-digit code, and you are connected. You never handle
+        a credential, and there is no account to create first.</p>
+        <p class="small muted">Click a command to select it, then copy.</p>
+      </div>
+      <div class="grid cols-2">
+        <div class="stack">
+          <div class="stack tight">
+            <p class="eyebrow">Server URL &middot; any MCP client</p>
+            <pre class="term selectable">https://cra.skarp.app/mcp</pre>
+          </div>
+
+          <div class="stack tight">
+            <p class="eyebrow">Claude Code</p>
+            <pre class="term selectable">claude mcp add --transport http skarp-cra https://cra.skarp.app/mcp</pre>
+          </div>
+
+          <div class="stack tight">
+            <p class="eyebrow">Codex</p>
+            <pre class="term selectable">codex mcp add skarp-cra --url https://cra.skarp.app/mcp</pre>
+            <p class="small muted">Or just tell it: <em>&ldquo;connect
+            https://cra.skarp.app/mcp as skarp-cra&rdquo;</em>.</p>
+          </div>
+
+          <div class="stack tight">
+            <p class="eyebrow">Claude.ai &middot; ChatGPT &middot; Codex web</p>
+            <p class="small muted">Settings &rarr; Connectors &rarr; Add custom
+            connector, then paste the server URL above.</p>
+          </div>
+
+          <div class="stack tight">
+            <p class="eyebrow">Then ask it</p>
+            <p><em>&ldquo;Does the Cyber Resilience Act apply to this product,
+            and what does it require?&rdquo;</em></p>
+            <p class="small muted">It starts with orientation, not paperwork:
+            what you ship, where it runs, which class you fall in. Your agent
+            reads your code locally and sends only what you record — the server
+            never connects to your repository.</p>
+          </div>
+        </div>
+        <form class="stack" action="/api/access/request" method="post">
+          <div>
+            <h3>Or hold a token yourself</h3>
+            <p class="small muted">For a script, a CI job, or a machine that cannot
+            open a browser. We send a single-use link, and it shows the token once.</p>
+          </div>
+          <div>
+            <label for="email">Email address</label>
+            <div class="field-row">
+              <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@company.com">
+              <button class="btn cta" type="submit">Send link</button>
+            </div>
+          </div>
+          <p class="small muted">By continuing you agree to the
+          <a href="/terms.html">Terms of Service</a> and
+          <a href="/privacy.html">Privacy</a>. Already have an account and lost your
+          token? The same form issues a new one.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</main>
+<footer class="sitefoot">
+  <div class="wrap">
+    <p>Operated from the EU. This site sets no cookies, runs no analytics, and
+    loads nothing from another host. Skarp CRA is a working aid and cannot
+    certify conformity or replace a notified body.</p>
+    <nav>
+      <a href="/coverage">Coverage</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/billing">Billing</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="mailto:cra@skarp.app">cra@skarp.app</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

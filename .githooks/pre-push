@@ -1,0 +1,27 @@
+#!/bin/sh
+# Screen what is about to leave this machine — the tree and the commit messages.
+#
+# A pre-push hook rather than pre-commit on purpose: a local commit is
+# recoverable and a push is not. This is the last point at which a message can
+# still be rewritten without a history rewrite.
+#
+# Enable once per clone (hooks are not carried by git):
+#     git config core.hooksPath .githooks
+#
+# `git push --no-verify` skips it. That is deliberate — a control nobody can
+# override gets disabled wholesale the first time it is wrong. Overriding it is
+# a decision someone makes and can be asked about.
+
+remote_ref=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+if [ -n "$remote_ref" ]; then
+    range="$remote_ref..HEAD"
+else
+    # Nothing upstream yet, so the first push publishes every commit there is.
+    # `HEAD`, not `<root>^..HEAD`: the root commit has no parent, so that range
+    # is invalid and `git log` fails — which the screen treated as "no messages
+    # to read" and passed. Caught by running the hook on a deliberately bad
+    # commit and watching it report the file and miss the message.
+    range=HEAD
+fi
+
+exec python3 "$(git rev-parse --show-toplevel)/scripts/screen.py" --range "$range"

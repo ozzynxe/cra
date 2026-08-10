@@ -1,0 +1,127 @@
+# Annex III (important products) and Annex IV (critical products) to
+# Regulation (EU) 2024/2847 — the lists that decide the conformity route.
+#
+# PROVENANCE — see annex_i.yaml for the fetch route.
+#
+# Reconciled against CELEX 32024R2847 on 2026-08-06. Annex III Class I has 19
+# entries, Class II has 4, Annex IV has 3, and all three lists were in the
+# published order with faithful paraphrases. Two omissions were closed: Class
+# I(1) also covers authentication and access control readers including
+# biometric ones, and Class I(19) excludes wearables covered by Regulation
+# (EU) 2017/745 or 2017/746 — a carve-out that decides whether a health
+# wearable is in this list at all.
+#
+# This file still carries more risk than the Annex I one, for two reasons:
+#
+#   1. Class membership decides whether a **notified body** is required.
+#      Telling someone their product is `default` when it is Class II is the
+#      most expensive single error this tool could make.
+#   2. Article 7(4) lets the Commission amend these lists by delegated act,
+#      so even a correct transcription decays. `regulation.eurlex.in_force()`
+#      is how the catalogue notices; it cannot notice a *category* moving.
+#
+# So `classify_product` returns an **indicative** result with its reasoning
+# and this provenance attached, and never sets `conformity_route` to anything
+# a user could mistake for a determination.
+
+celex: "32024R2847"
+source_verified: true
+verified_at: "2026-08-06"
+verified_against: https://publications.europa.eu/resource/celex/32024R2847
+
+# Article 7(4): the Commission may amend Annex III by delegated act. A
+# classification is therefore true as of a date, not permanently.
+amendable_by: Article 7(4) delegated acts
+
+classes:
+  - id: default
+    title: Default category
+    anchor: Article 32
+    conformity_route: self_assessment
+    notified_body_required: false
+    description: >-
+      Not listed in Annex III or Annex IV. The manufacturer may use internal
+      control (Module A) — self-assessment against Annex I, with the technical
+      file and EU Declaration of Conformity still mandatory.
+
+  - id: important_class_i
+    title: Important products, class I
+    anchor: Annex III, class I
+    conformity_route: self_assessment_with_standards
+    notified_body_required: false
+    description: >-
+      Self-assessment is available **only** where harmonised standards, common
+      specifications or a European cybersecurity certification scheme are
+      applied in full. Otherwise a notified body procedure applies.
+    categories:
+      - identity management systems and privileged access management software
+        and hardware, including authentication and access control readers,
+        including biometric readers
+      - standalone and embedded browsers
+      - password managers
+      - software that searches for, removes or quarantines malicious software
+      - products with digital elements with a virtual private network (VPN) function
+      - network management systems
+      - security information and event management (SIEM) systems
+      - boot managers
+      - public key infrastructure and digital certificate issuance software
+      - physical and virtual network interfaces
+      - operating systems
+      - routers, modems intended for the connection to the internet, and switches
+      - microprocessors with security-related functionalities
+      - microcontrollers with security-related functionalities
+      - application specific integrated circuits (ASIC) and field-programmable gate arrays (FPGA) with security-related functionalities
+      - smart home general purpose virtual assistants
+      - smart home products with security functionalities, including smart door locks, security cameras, baby monitoring and alarm systems
+      - internet connected toys with social interactive features or location tracking features
+      - personal wearable products worn on or placed on the body with a health
+        monitoring purpose and to which Regulation (EU) 2017/745 or 2017/746
+        does not apply, or personal wearables intended for use by children
+
+  - id: important_class_ii
+    title: Important products, class II
+    anchor: Annex III, class II
+    conformity_route: notified_body
+    notified_body_required: true
+    description: >-
+      A third-party conformity assessment procedure is required — EU
+      type-examination (Module B) plus conformity to type (Module C), or full
+      quality assurance (Module H).
+    categories:
+      - hypervisors and container runtime systems that support virtualised execution of operating systems and similar environments
+      - firewalls, intrusion detection and prevention systems
+      - tamper-resistant microprocessors
+      - tamper-resistant microcontrollers
+
+  - id: critical
+    title: Critical products
+    anchor: Annex IV
+    conformity_route: notified_body_or_certification
+    notified_body_required: true
+    description: >-
+      The Commission may require a European cybersecurity certificate at
+      assurance level at least "substantial" under Regulation (EU) 2019/881.
+      Absent that, a notified body procedure applies.
+    categories:
+      - hardware devices with security boxes
+      - smart meter gateways within smart metering systems, and other devices for advanced security purposes including secure cryptoprocessing
+      - smartcards or similar devices, including secure elements
+
+# Products excluded from the CRA entirely, or covered by other Union law.
+# Non-exhaustive, and the reason `in_scope` starts as null rather than true.
+out_of_scope_hints:
+  - anchor: Article 2(2)
+    note: Medical devices, in vitro diagnostics, motor vehicles, civil aviation and marine equipment covered by their own Union law.
+  - anchor: Article 2(5)
+    note: Products developed exclusively for national security or military purposes, and products specifically designed to process classified information.
+  - anchor: Article 13(5)
+    note: >-
+      Spare parts supplied to replace identical components, and products whose
+      only purpose is to be integrated as a component into another product, are
+      treated differently — check before assuming the product is the regulated
+      unit.
+  - anchor: Recital 15 / Article 3(62)
+    note: >-
+      A pure service (SaaS) is generally outside scope unless remote data
+      processing solutions are integral to a product with digital elements. This
+      is the boundary most software makers get wrong in their own favour.

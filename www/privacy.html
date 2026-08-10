@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — Skarp CRA</title>
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="/">Skarp CRA</a>
+    <nav>
+      <a href="/#covers">What it covers</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/app">Sign in</a>
+      <a class="btn cta small" href="/#access">Start free</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+<div class="prose">
+
+<h1>Privacy</h1>
+<p class="updated">Last updated 9 August 2026</p>
+
+<p>This service stores vulnerability and incident records, some of which
+describe flaws that have not yet been fixed or reported. That shapes everything
+below: what is collected, how long it is kept, and the one place where deletion
+is genuinely constrained.</p>
+
+<div class="card">
+  <p><strong>Controller.</strong> Skarp — contact
+  <a href="mailto:cra@skarp.app">cra@skarp.app</a>. If you need a named legal
+  entity and registered address for a data processing agreement, ask and we will
+  provide them.</p>
+</div>
+
+<h2>What is collected</h2>
+
+<h3>Account data</h3>
+<p>An email address, and a display name if you supply one. Credentials are
+connector tokens: only a bcrypt hash of each token is stored, so a token cannot
+be recovered from the database — if you lose one, it is reissued rather than
+retrieved.</p>
+
+<h3>What you record about your products</h3>
+<p>Everything you enter through the tools: product descriptions and intended
+use, classification decisions and their reasoning, risk assessments, Annex I
+requirement status and justifications, evidence artifacts and their provenance,
+vulnerability and incident records including severity and exploitation status,
+reporting deadlines and submission references, and the names and roles of people
+who sign off on technical documentation.</p>
+<p class="muted">Evidence is stored <em>by value</em> — the artifact itself, not
+a link to it — because a reference proves nothing years later. Do not paste
+credentials, customer personal data, or anything you would not want retained for
+a decade into evidence bodies.</p>
+
+<h3>Activity</h3>
+<p>Every change to a product's compliance record writes an audit entry: what
+changed, when, which agent or model
+performed it, and which account is accountable. This trail is the product. It is
+what evidences that your technical documentation was maintained, so it is
+append-only and is not edited to look tidier after the fact.</p>
+
+<h3>What is not collected</h3>
+<p>This website sets no cookies, loads nothing from other hosts, and runs no
+analytics or tracking of any kind. There is no advertising, and nothing here is
+sold or shared for marketing. (That is about this site in your browser. The
+service itself makes one outbound request on your behalf — see
+<a href="#osv">where it is processed</a>.)</p>
+
+<h2>Why, and on what basis</h2>
+<ul>
+  <li><strong>To provide the service</strong> — performance of a contract. Your
+  compliance records exist because you asked the tool to keep them.</li>
+  <li><strong>To keep it secure</strong> — legitimate interests: rate limiting,
+  bcrypt-hashed credentials, per-product access checks and the audit trail.</li>
+  <li><strong>To warn you about deadlines</strong> — performance of a contract.
+  Email alerts go to the members of a product as its statutory deadlines
+  approach. This is on by default, because a compliance tool that silently
+  stops chasing a legal deadline has failed at its job.</li>
+</ul>
+
+<h2>Where it is processed</h2>
+<p>Hosted on Amazon Web Services in <strong>eu-north-1 (Stockholm)</strong>.
+Database, backups and outbound email all stay in that region. AWS provides
+compute and storage, plus Amazon SES for notifications. No analytics or
+error-tracking service receives your data.</p>
+
+<h3 id="osv">One thing does leave, and only one</h3>
+<div class="card">
+  <p>To warn you about vulnerabilities in components you ship, the service
+  checks your software bill of materials against three public sources: the
+  <strong>OSV</strong> advisory database, <strong>CISA's Known Exploited
+  Vulnerabilities</strong> catalogue, and <strong>EPSS</strong>, which
+  estimates how likely each CVE is to be exploited.</p>
+  <p><strong>Only the first of those sends anything.</strong> KEV and EPSS are
+  downloaded whole and matched on this host, so nothing about your product is
+  disclosed for either — that is why they are mirrored rather than queried
+  per-CVE, since asking a scoring API about the CVEs affecting your components
+  would reveal exactly what the mirror avoids. Querying OSV does send data: the
+  <strong>package name, ecosystem and version</strong> of each component — for
+  example <code>requests</code>, <code>PyPI</code>, <code>2.31.0</code>. Never
+  the SBOM document itself, which also carries supplier names, file paths and
+  hashes; never your product name, your account, or anything you have recorded
+  about vulnerabilities or incidents.</p>
+  <p>A dependency list can still be commercially sensitive. An operator can turn
+  the check off entirely with <code>CRA_ADVISORY_SCAN_ENABLED=0</code>, in which
+  case nothing leaves this host at all — and you get no proactive warnings.</p>
+</div>
+
+<h2>How long it is kept — and the honest caveat</h2>
+
+<p>The CRA puts this duty on the <strong>manufacturer</strong> — on you — and not
+on this service. <strong>Article 13(13)</strong> requires you to keep the
+technical documentation and the EU declaration of conformity at the disposal of
+market surveillance authorities for at least ten years after the product is
+placed on the market, <em>or for the support period, whichever is longer</em>.
+<strong>Article 13(18)</strong> sets the same period for the Annex II
+information that accompanies the product. Nothing in the regulation obliges us
+to keep anything, and our holding a copy does not discharge your obligation.</p>
+
+<p>We hold that copy so the record is there when you need it, and retention here
+is longer than most services because of it. Being exact about what that means
+today: <strong>everything you record is kept for as long as your account
+exists</strong> — not only the documents those articles name, but the audit
+trail, vulnerability and incident records, advisory scans and working drafts.
+That is broader than the regulation requires. Narrowing it to the classes that
+genuinely need decade-scale retention is planned work, not something already
+in place, and this page will say so plainly when that changes.</p>
+
+<div class="note">
+  <p><strong>Two kinds of copy, kept for different lengths of time.</strong>
+  Nightly database backups exist for disaster recovery. Since 9 August 2026 they
+  are written to Amazon S3 without Object Lock and expire automatically after 90
+  days, so an erasure request reaches them by waiting.</p>
+  <p>A small number of full-database snapshots taken <em>before</em> that change
+  — six, dated 5 to 9 August 2026 — are still held under Object Lock and cannot
+  be removed by ordinary means until August 2036. We would rather say so than
+  round it off: they are the reason the paragraph below exists.</p>
+  <p>Separately, the <em>statutory record</em> — a frozen technical file, a
+  declaration of conformity, a simplified declaration, a sign-off, and the
+  release each is tied to — is copied into a locked archive under Object Lock in
+  <em>governance</em> mode, with a retention period set per object and never
+  shorter than the ten years Article 13(13) requires. The copy is scheduled when
+  the record is created and uploaded on a daily pass, so it can be up to a day
+  behind. Those
+  objects cannot be deleted by ordinary means before their period expires. This
+  is the record the regulation obliges a manufacturer to keep available, and
+  keeping it is the point of the service.</p>
+  <p>Governance mode means a specifically privileged administrator <em>can</em>
+  remove an object before expiry, so an erasure request is not impossible — but
+  it is a deliberate, logged, manual operation rather than something the
+  application can do.</p>
+  <p><strong>Erasure today is manual, and we would rather say so.</strong> The
+  application has no self-service delete: asking us to remove your data starts a
+  hand-run operation against the live database, not an automated one. We will
+  confirm when it is done and tell you what remains in the locked archive and
+  until when. An automatic lifecycle for data that is not part of the statutory
+  record is planned and is not yet built.</p>
+</div>
+
+<p>Where a record is part of the evidentiary trail for a technical file — an
+audit row, a signed attestation — erasing it would destroy the very thing that
+demonstrates compliance. In those cases we will explain the conflict rather than
+quietly refuse.</p>
+
+<h2>Your rights</h2>
+<p>Under the GDPR you can request access to your personal data, correction of
+it, erasure, restriction of or objection to processing, and a portable copy.
+Write to <a href="mailto:cra@skarp.app">cra@skarp.app</a>. You also have the
+right to complain to your national data protection supervisory authority.</p>
+<p class="muted">Most of what this service holds is information about
+<em>products</em> rather than people. The personal data is small: account
+emails, display names, the names and roles of signatories, and a security
+contact address if you record one.</p>
+
+<h2>Security</h2>
+<ul>
+  <li>TLS on every connection; the API is not reachable over plaintext.</li>
+  <li>Connector tokens are bcrypt-hashed; the plaintext is shown once, at
+  issue, and never stored.</li>
+  <li>Every product-scoped operation checks membership — holding a product
+  identifier grants nothing on its own.</li>
+  <li>The service's own database runs under a dedicated role with the public
+  connect grant revoked, so a credential compromise elsewhere on the host does
+  not reach it.</li>
+</ul>
+<p>To report a vulnerability in this service, write to
+<a href="mailto:cra@skarp.app">cra@skarp.app</a>. Given what the tool is for, we
+would rather hear about it early and awkwardly than late and politely.</p>
+
+<h2>Changes</h2>
+<p>Material changes will be reflected here with a new date at the top, and
+notified to account holders by email where the change affects how their data is
+handled.</p>
+
+</div>
+</main>
+<footer class="sitefoot">
+  <div class="wrap">
+    <p>Operated from the EU. This site sets no cookies, runs no analytics, and
+    loads nothing from another host. Skarp CRA is a working aid and cannot
+    certify conformity or replace a notified body.</p>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/coverage">Coverage</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/terms.html">Terms</a>
+      <a href="mailto:cra@skarp.app">cra@skarp.app</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,162 @@
+name: tests
+
+# Deploys go from a laptop and `deploy.sh` will happily ship a red suite, so
+# this is the only thing standing between a broken test and production. It
+# runs on pushes to main as well as pull requests for exactly that reason —
+# the usual workflow here is committing straight to main, and a check that
+# only fires on PRs would never fire at all.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screen:
+    # Publication screen: `scripts/screen.py` over the tree and over the commit
+    # messages in this push. Separate from `secrets` because it looks for a
+    # different thing — gitleaks finds credentials, this finds material that is
+    # not secret and still does not belong in a public repository.
+    #
+    # The pre-push hook is the real control, since it runs before anything
+    # leaves a machine. This is the backstop for a push made with
+    # `--no-verify`, or from a clone where nobody ran
+    # `git config core.hooksPath .githooks`.
+    #
+    # It cannot screen by identifying value here: `deploy/deploy.env` is not in
+    # CI, which is the point of it. The script says so rather than passing
+    # quietly, and the patterns still run.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Screen the tree
+        run: python3 scripts/screen.py
+      - name: Screen the commit messages in this push
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="origin/${{ github.base_ref }}..HEAD"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            range="${{ github.event.before }}..HEAD"
+          else
+            # `HEAD`, not `<root>..HEAD`: that range excludes the root
+            # commit, so a freshly squashed history would screen nothing
+            # and report green on the one push where it matters.
+            range=HEAD
+          fi
+          echo "screening $range"
+          python3 scripts/screen.py --range "$range"
+
+  secrets:
+    # Separate from `test` so a leak is legible on its own rather than buried
+    # in a suite failure, and so it still reports when the DB service is sick.
+    #
+    # `git` mode scans every commit, not the working tree: the failure worth
+    # catching is a key committed and "removed" in the next commit, which is
+    # still there and still valid. `fetch-depth: 0` is what makes that true —
+    # the default shallow checkout would scan one commit and pass.
+    #
+    # The binary is fetched and pinned rather than using the marketplace
+    # action, which asks organisations for a licence key. There is no
+    # allowlist; if this ever fires on a placeholder, add a `.gitleaks.toml`
+    # entry naming the file rather than loosening the rule.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan every commit for secrets
+        run: |
+          set -euo pipefail
+          curl -sfL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          # --redact so a real finding does not get reproduced into a public
+          # build log, which would publish the thing the check just caught.
+          ./gitleaks git --redact --verbose .
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        # 16, matching `deploy-postgres-1` in production. The JSONB state blob
+        # and the audit trail are the things worth testing against the real
+        # engine rather than SQLite.
+        image: postgres:16
+        env:
+          POSTGRES_USER: cra
+          POSTGRES_PASSWORD: cra
+          POSTGRES_DB: cra_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cra"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # psycopg3, which is what `pyproject.toml` declares and what
+      # `scripts/dev_up.sh` uses. A bare `postgresql://` URL asks SQLAlchemy
+      # for psycopg2, which is not a dependency of this project.
+      DATABASE_URL: postgresql+psycopg://cra:cra@localhost:5432/cra_test
+      # The trap this repo documents: `DATABASE_URL` alone is not enough.
+      # Integration tests seed through `store_pg` while the dispatcher reads
+      # through `store_backend`, which still defaults to `file` — set only the
+      # URL and ~80 tests fail on state the dispatcher cannot see, which reads
+      # as a broken suite rather than a missing variable.
+      CRA_STORE: pg
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Migrate
+        run: alembic upgrade head
+
+      - name: Check for schema drift
+        # Models and migrations disagreeing is a real failure mode here, and
+        # it is invisible until a deploy runs the same check against
+        # production. Catching it on a laptop-to-main push is the point.
+        run: alembic check
+
+      - name: Confirm Postgres is actually reachable
+        # The failure this guards against is silent: a misconfigured service
+        # container makes every `_NEEDS_DB` test skip, and the suite still
+        # reports green. Asserting the connection here rather than counting
+        # skips means the check keeps working when a test is legitimately
+        # skipped for some other reason.
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+          engine = create_engine(os.environ["DATABASE_URL"])
+          with engine.connect() as conn:
+              print("connected:", conn.execute(text("select version()")).scalar_one()[:48])
+          PY
+
+      - name: Tests
+        run: pytest -q

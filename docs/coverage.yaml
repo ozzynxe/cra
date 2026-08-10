@@ -1,0 +1,711 @@
+# What the CRA obligates, and what this tool does about it.
+#
+# Source for the public /coverage page (scripts/render_coverage.py).
+#
+# TWO COLUMNS, AND THE SUBJECT OF EACH IS DIFFERENT
+#
+# `obligation` is what the law requires *of the manufacturer*. `support` is
+# what this server does to help them meet it. Keeping those apart is the whole
+# point of the file. The engineering documents this page replaced audited the
+# *server* against Article 13 and so concluded that 13(1) — design and produce
+# in accordance with Annex I Part I — was the obligation the tool was
+# "furthest from meeting". That measures the wrong subject. Article 13 binds
+# the manufacturer; the tool's job is to put the requirement, the risk that
+# makes it applicable and the evidence in front of the agent doing the work.
+# Judging a compliance tool by whether it personally writes the software is
+# like judging an issue tracker by whether it fixes bugs.
+#
+# RULES FOR `support`
+#
+#   * State what the tool does. No adjectives about how well.
+#   * Name the tools, so a claim is checkable against the tool surface.
+#   * Where nothing exists, `support` starts with "Nothing" and says what a
+#     user has to do instead. An omitted row would let the page imply
+#     coverage; a euphemism would do the same more slowly.
+#
+# PROVENANCE
+#
+# `obligation` summaries for Articles 13 and 14 are paraphrases of the
+# published text, fetched 2026-08-08 as CELEX 32024R2847 from the Publications
+# Office (not eur-lex.europa.eu, which returns HTTP 202 with an empty body to
+# non-browser clients). Paraphrases, deliberately — the page links to the
+# authoritative text beside them, exactly as `regulation/annex_i.yaml` does.
+#
+# Annex I and Annex VII rows carry NO obligation text here. Those come from
+# `src/cra/regulation/` at render time, so a catalogue renumbering cannot
+# leave this page citing provisions that no longer exist — the failure
+# annex_i.yaml's own header records having happened once already. This file
+# supplies only the `support` half, keyed by catalogue id, and a test fails if
+# any catalogue entry has no key.
+#
+# Article 13(24) is not listed: it is a Commission power to specify the SBOM
+# format by implementing act, not a manufacturer obligation. When it lands,
+# `record_sbom`'s accepted formats have to follow it.
+
+paraphrase_verified_at: "2026-08-08"
+
+sections:
+  - id: article-13
+    title: Article 13 — Obligations of manufacturers
+    lede: >-
+      Twenty-five paragraphs. These are the duties that attach to placing a
+      product with digital elements on the EU market.
+    rows:
+      - anchor: 13(1)
+        obligation: >-
+          Ensure the product has been designed, developed and produced in
+          accordance with the essential cybersecurity requirements in Annex I
+          Part I.
+        support: >-
+          Puts each of the 22 requirements in front of the agent working in
+          your repository, together with the risk from your own assessment
+          that makes it applicable and a note of what good evidence looks
+          like. Status and reasoning are recorded per requirement, and
+          evidence is stored by value and hashed with its provenance — a git
+          SHA, a CI run, a tool and version. The engineering is yours; this is
+          what turns each requirement into a specific, evidenced task next to
+          the code rather than a line in a PDF.
+        tools: [list_requirements, update_requirement, attach_evidence]
+
+      - anchor: 13(2)
+        obligation: >-
+          Undertake a cybersecurity risk assessment and take its outcome into
+          account during planning, design, development, production, delivery
+          and maintenance.
+        support: >-
+          Your agent drafts risks from the codebase it is sitting in. You
+          accept, amend or reject each one — a drafted risk determines nothing
+          until `decide_risk` is called with a rationale. Confirming freezes a
+          hashed version.
+        tools:
+          [start_risk_assessment, propose_risks, decide_risk, confirm_risk_assessment]
+
+      - anchor: 13(3)
+        obligation: >-
+          Document the assessment and update it during the support period. It
+          must analyse risks based on intended purpose, reasonably foreseeable
+          use and conditions of use, taking account of how long the product is
+          expected to be in use; indicate whether and how the Annex I Part
+          I(2) requirements apply and how they are implemented; and indicate
+          how Part I(1) and the Part II vulnerability handling requirements
+          are applied.
+        support: >-
+          The four inputs the paragraph names are mandatory before an
+          assessment can be confirmed. Each decided risk names the
+          requirements it makes applicable, which becomes the recorded basis
+          on each one, and an implementation note records how it is met. The
+          assessment is derived stale when the product moves under it — a
+          reclassification, a lifecycle change — so "updated as appropriate"
+          has a trigger rather than a reminder. The paragraph's last sentence
+          is asked for separately and confirming is refused without it: the
+          risks answer Part I(2), and how you apply Part I(1) and the Part II
+          vulnerability handling requirements are statements about the whole
+          product that no per-risk determination produces. Both freeze inside
+          the hashed assessment, so Annex VII(3) cites all of 13(3) rather
+          than two thirds of it.
+        tools: [start_risk_assessment, decide_risk, confirm_risk_assessment,
+                get_risk_assessment]
+
+      - anchor: 13(4)
+        obligation: >-
+          Include the risk assessment in the technical documentation. Where an
+          essential requirement is not applicable, include a clear
+          justification.
+        support: >-
+          Annex VII(3) does not report complete without a confirmed,
+          non-stale assessment, and marking a requirement not applicable is
+          refused without a justification. Nothing is ever ruled out
+          automatically: confirming an assessment marks the risk-named
+          requirements applicable and leaves the rest undetermined, which
+          still reads as a gap.
+        tools: [assemble_technical_file, update_requirement]
+
+      - anchor: 13(5)
+        obligation: >-
+          Exercise due diligence when integrating third-party components,
+          including free and open-source components, so they do not
+          compromise the product's cybersecurity.
+        support: >-
+          Your SBOM is stored by value and checked daily against the OSV
+          advisory database and CISA's Known Exploited Vulnerabilities
+          catalogue. That covers knowing what you ship and what is known to be
+          wrong with it. There is no per-component record of diligence at the
+          moment of adoption — what was checked, by whom, when.
+        tools: [record_sbom, scan_advisories, list_advisory_candidates]
+
+      - anchor: 13(6)
+        obligation: >-
+          On identifying a vulnerability in an integrated component, report it
+          to whoever manufactures or maintains that component, and share any
+          fix you developed.
+        support: >-
+          Nothing. Confirming an advisory on a third-party component is the
+          moment this duty arises and the tool knows it, but it does not
+          prompt for the upstream report or record that you made one. Attach
+          it as evidence against Annex I Pt II(2) in the meantime.
+        tools: []
+
+      - anchor: 13(7)
+        obligation: >-
+          Systematically document relevant cybersecurity aspects, including
+          vulnerabilities you become aware of and relevant information
+          provided by third parties, and update the risk assessment where
+          applicable.
+        support: >-
+          Vulnerability and incident records carry status, severity and
+          remediation references; advisory candidates from OSV and CISA KEV
+          are the third-party half. Every change writes an attributed audit
+          row in the same database transaction as the change itself, so a
+          failed audit write fails the operation rather than leaving an
+          unrecorded edit.
+        tools: [record_vulnerability, update_vulnerability, get_recent_activity]
+
+      - anchor: 13(8)
+        obligation: >-
+          Handle vulnerabilities effectively during the support period, in
+          accordance with Annex I Part II. Determine the support period from
+          the expected time in use — at least five years unless the product is
+          expected to be in use for less. Record what you took into account in
+          the technical documentation, and have policies and procedures,
+          including a coordinated vulnerability disclosure policy, for
+          processing reported vulnerabilities.
+        support: >-
+          Vulnerability handling is the Annex I Part II section below and the
+          Article 14 clocks. Your coordinated vulnerability disclosure policy
+          URL and security contact are recorded and checked before an incident
+          rather than during one. The support period is recorded with its
+          reasoning, which is the half of 13(8) people forget: the paragraph
+          puts *the information taken into account* in the technical
+          documentation, so a date alone leaves Annex VII(4) unmet even though
+          it looks filled. A period under five years is refused unless you
+          state the expected use time — the paragraph's only exception, and one
+          that has to be claimed rather than arrived at by choosing a nearer
+          date. The floor is measured in calendar years, not elapsed days.
+        tools: [set_support_period, set_submitter_profile, check_reporting_readiness]
+
+      - anchor: 13(9)
+        obligation: >-
+          Keep each security update available for at least 10 years after it
+          is issued, or for the remainder of the support period if longer.
+        support: >-
+          Nothing. Track update availability outside the tool.
+        tools: []
+
+      - anchor: 13(10)
+        obligation: >-
+          Where substantially modified versions of a software product have
+          been placed on the market, Annex I Pt II(2) compliance may be
+          ensured for the latest version only, provided earlier users can
+          reach it free of charge and without adjusting their environment.
+        support: >-
+          Nothing. The position you take can be attached as evidence against
+          Annex I Pt II(2) so it lives with the file rather than in someone's
+          head.
+        tools: []
+
+      - anchor: 13(11)
+        obligation: >-
+          Where public archives of historical versions are maintained, clearly
+          inform users of the risks of using unsupported software.
+        support: >-
+          Nothing.
+        tools: []
+
+      - anchor: 13(12)
+        obligation: >-
+          Before placing the product on the market: draw up the technical
+          documentation, carry out (or have carried out) the conformity
+          assessment procedure, and where conformity is demonstrated, draw up
+          the EU declaration of conformity and affix the CE marking.
+        support: >-
+          The technical file is assembled as an Annex VII gap report first and
+          can then be frozen with a content hash. The Annex V declaration is
+          generated bound to that hash, and a sign-off binds a named signatory
+          to a specific version — editing afterwards shows as a stale
+          signature rather than silently still valid. The conformity
+          assessment procedure and the CE marking are acts you perform; where
+          your product class requires a notified body, only that body can
+          assess conformity.
+        tools:
+          [assemble_technical_file, generate_declaration_of_conformity, sign_off,
+           get_conformity_status]
+
+      - anchor: 13(13)
+        obligation: >-
+          Keep the technical documentation and the EU declaration of
+          conformity available to market surveillance authorities for at least
+          10 years after the product is placed on the market, or the support
+          period if longer.
+        support: >-
+          Evidence is stored by value rather than as a link that rots, the
+          audit trail is append-only, and the statutory record is copied to an
+          archive under S3 Object Lock with per-object retention never shorter
+          than the ten years 13(13) requires. The technical file reports the
+          date *your* documentation has to be kept until, computed from the
+          release you placed on the market and your support period — and says
+          the period has not started where you have placed nothing.
+        tools: [attach_evidence, list_evidence]
+
+      - anchor: 13(14)
+        obligation: >-
+          Have procedures keeping series production in conformity, taking
+          account of changes in the development or production process, in the
+          product's design or characteristics, and in the harmonised
+          standards, certification schemes or common specifications the
+          declaration relies on.
+        support: >-
+          The risk assessment is derived stale on reclassification or a
+          lifecycle change, and signatures go stale when the frozen file is
+          edited. Nothing watches the harmonised standards themselves — they
+          are recorded in the Annex VII(5) slot and not monitored for change.
+        tools: [get_conformity_status, get_risk_assessment]
+
+      - anchor: 13(15)
+        obligation: >-
+          Ensure the product bears a type, batch or serial number allowing its
+          identification, or that the information is on the packaging or an
+          accompanying document.
+        support: >-
+          Nothing. This is an identifier on the artefact or its packaging.
+        tools: []
+
+      - anchor: 13(16)
+        obligation: >-
+          Indicate the manufacturer's name and contact details on the product,
+          its packaging or an accompanying document, and in the Annex II user
+          information.
+        support: >-
+          Nothing. A legal name and a security contact are recorded, but those
+          serve Article 14 reporting and are a different obligation — do not
+          treat one as evidence of the other.
+        tools: []
+
+      - anchor: 13(17)
+        obligation: >-
+          Designate a single point of contact letting users communicate
+          directly and rapidly, easily identifiable to users, allowing them to
+          choose their means of communication rather than forcing automated
+          tools.
+        support: >-
+          The contact address is recorded and surfaced in reporting readiness.
+          Whether it is easily identifiable and offers a choice of channel is
+          an organisational fact the tool cannot check.
+        tools: [set_submitter_profile]
+
+      - anchor: 13(18)
+        obligation: >-
+          Ensure the product is accompanied by the information and
+          instructions to the user set out in Annex II, and keep them
+          available for at least 10 years or the support period if longer.
+        support: >-
+          All fifteen items are a checklist, worked one at a time: nine
+          numbered points with the six sub-points of point 8 listed
+          separately, because each is a distinct thing a reader has to find.
+          Each is either provided — with where a user actually finds it — or
+          ruled out with a justification. Four are conditional in the annex's
+          own words, and those still need a reason, or "where applicable"
+          becomes a way to empty the annex. Annex VII(1) reports the coverage
+          item by item instead of accepting an attached document and hoping it
+          says the right things. What the tool cannot do is read your manual
+          and tell you whether it is true.
+        tools: [list_user_information, update_user_information, attach_evidence]
+
+      - anchor: 13(19)
+        obligation: >-
+          Specify the end date of the support period, at least the month and
+          year, clearly at the time of purchase; and where technically
+          feasible, display a notification when the product reaches end of
+          support.
+        support: >-
+          The end date is recorded with the determination, and where you
+          publish it can be recorded alongside — the tool cannot check that a
+          page says what you think it says, but it keeps the address with the
+          record. Everyone on the product is warned at 180, 90, 30 and 7 days,
+          and once when the period passes. It cannot display a notice inside
+          your product, which is the other half of this paragraph.
+        tools: [set_support_period]
+
+      - anchor: 13(20)
+        obligation: >-
+          Provide either a copy of the EU declaration of conformity or a
+          simplified one carrying the exact internet address of the full
+          declaration.
+        support: >-
+          Both forms. The simplified one is refused without the exact internet
+          address of the full declaration, because that address is the entire
+          reason 13(20) permits a short form — an address-less one is not a
+          shorter declaration, it is a non-compliant one. It records the
+          address exactly as given and never fetches it: the tool cannot
+          confirm what is published there, and it says so rather than implying
+          a check it did not make. It also carries the hash of the full
+          declaration it points at, so re-issuing that one makes a stale short
+          form detectable.
+        tools: [generate_declaration_of_conformity, generate_simplified_declaration]
+
+      - anchor: 13(21)
+        obligation: >-
+          On knowing or having reason to believe the product or your processes
+          are not in conformity with Annex I, immediately take corrective
+          measures, or withdraw or recall the product.
+        support: >-
+          Nothing. There is no non-conformity record, so "we knew, we did
+          this, on this date" has to be attached as evidence.
+        tools: []
+
+      - anchor: 13(22)
+        obligation: >-
+          On a reasoned request from a market surveillance authority, provide
+          all information and documentation demonstrating conformity, and
+          cooperate on measures to eliminate the risks posed.
+        support: >-
+          The technical file is the dossier such a request asks for, and the
+          evidence list enumerates what is held. There is no export package,
+          and no record that a request was received, what was provided, and
+          when.
+        tools: [assemble_technical_file, list_evidence]
+
+      - anchor: 13(23)
+        obligation: >-
+          A manufacturer ceasing operations must inform the relevant market
+          surveillance authorities, and as far as possible the users, before
+          the cessation takes effect.
+        support: >-
+          Nothing. A one-off business event discharged by writing to people.
+        tools: []
+
+      - anchor: 13(25)
+        obligation: >-
+          Market surveillance authorities may request the software bill of
+          materials for a dependency assessment conducted by ADCO.
+        support: >-
+          The SBOM is stored by value, so it can be produced on request in the
+          form it was given.
+        tools: [record_sbom]
+
+  - id: article-14
+    title: Article 14 — Reporting obligations of manufacturers
+    lede: >-
+      This is what applies from 11 September 2026, and it is the half with a
+      clock on it. Every deadline here runs from when you became aware, however
+      that happened — a researcher, a customer, your own testing, or the daily
+      scan described below. The regulation does not oblige you to go looking,
+      and nothing here is a guarantee that you will find out in time. These
+      tools and the scanning are free — nobody should meet a paywall while a
+      24-hour statutory clock is running.
+    rows:
+      - anchor: 14(1), 14(3)
+        obligation: >-
+          Notify any actively exploited vulnerability, and any severe incident
+          affecting the product's security, simultaneously to the CSIRT
+          designated as coordinator and to ENISA, via the Single Reporting
+          Platform.
+        support: >-
+          This obligation triggers on becoming *aware*, and the daily SBOM
+          scan is one of the ways you do: your components are checked against
+          CISA's Known Exploited Vulnerabilities catalogue, and a match is
+          flagged as exploited and mailed to everyone on the product. A feed
+          match is a candidate, never a record — version ranges over-match,
+          and opening an incident from one would put a spurious notification
+          in front of a CSIRT. Confirming it is the act that starts the
+          clocks, and it will not accept a confirmation without a rationale
+          saying what you checked. Awareness then anchors on when the tool
+          told you rather than on when you got round to confirming, so a slow
+          response cannot quietly understate how long you had known. Marking
+          any vulnerability actively exploited does the same thing; a severe
+          incident can be opened directly. The tool never submits anything —
+          you file on the Single Reporting Platform under your own EU Login,
+          and record the submission reference here afterwards. Recording a
+          submission is not a submission.
+        tools: [scan_advisories, confirm_advisory, record_vulnerability,
+                update_vulnerability, report_incident, record_report_submission]
+
+      - anchor: 14(2), 14(4)
+        obligation: >-
+          For a vulnerability: an early warning within 24 hours of becoming
+          aware, a notification within 72 hours, and a final report no later
+          than 14 days after a corrective or mitigating measure is available.
+          For a severe incident: the same 24-hour and 72-hour stages, and a
+          final report within one month.
+        support: >-
+          All stages are derived from when you became aware, never from when
+          the tool was called; omitting the awareness timestamp anchors on now
+          and says so in the response. The 14-day final report is anchored on
+          the date a corrective measure became available, and does not
+          materialise until you record one. The one-month final report is
+          anchored on awareness rather than on the 72-hour notification —
+          where the reading is ambiguous, the earlier deadline is the safe
+          one. Status is derived from stored timestamps, so a sweeper outage
+          cannot mark you compliant.
+        tools: [get_reporting_deadlines, update_vulnerability]
+
+      - anchor: 14(2), 14(4) — content
+        obligation: >-
+          Each stage has required content: the Member States where the product
+          is available, the nature of the exploit, corrective measures taken
+          and available to users, severity and impact, and information about
+          any malicious actor.
+        support: >-
+          Drafts are produced in ENISA's own field layout. A draft always
+          comes out — missing fields are listed beside it, never instead of
+          it, because a report you cannot see is worse than one with holes you
+          can.
+        tools: [draft_report, check_reporting_readiness]
+
+      - anchor: 14(5)
+        obligation: >-
+          An incident is severe where it affects the product's ability to
+          protect the availability, authenticity, integrity or confidentiality
+          of sensitive or important data or functions, or where it has led or
+          could lead to malicious code being introduced or executed.
+        support: >-
+          The severity call is yours. The tool records which kind you chose,
+          because the two differ only in the final-report deadline and that
+          difference is legal rather than cosmetic.
+        tools: [report_incident]
+
+      - anchor: 14(6)
+        obligation: >-
+          The coordinating CSIRT may request an intermediate report on status
+          updates.
+        support: >-
+          Nothing. There is no intermediate-report stage; attach the report
+          you sent as evidence.
+        tools: []
+
+      - anchor: 14(7)
+        obligation: >-
+          Notifications go to the CSIRT of the Member State of your main
+          establishment, via one of the platform's electronic notification
+          end-points; where there is no main establishment in the Union, a
+          fallback order determines which.
+        support: >-
+          The rule is stated and the Member States where your product is
+          available are recorded, since that is an obligatory report field.
+          The tool does not name your CSIRT: the platform routes on the
+          registration details you give it, so the answer is settled when you
+          register, not per report.
+        tools: [get_applicable_csirt, set_submitter_profile]
+
+      - anchor: 14(8)
+        obligation: >-
+          After becoming aware, inform the impacted users of the vulnerability
+          or incident and, where necessary, of the mitigation and corrective
+          measures they can deploy.
+        support: >-
+          Nothing. This runs in parallel with the CSIRT clocks and is easy to
+          lose behind them; attach what you sent as evidence.
+        tools: []
+
+# ---- Annex I -----------------------------------------------------------------
+#
+# Keyed by requirement id in `src/cra/regulation/annex_i.yaml`. The obligation
+# text is taken from that catalogue at render time. A test fails if a
+# requirement has no entry here.
+
+annex_i:
+  # Part I — properties of the product.
+  annex_i.i.1:
+    support: >-
+      The risk assessment this requirement is judged against is the one your
+      agent drafted from your codebase and you confirmed. Whether the
+      resulting engineering is appropriate is a judgement no tracker makes —
+      the tool holds the assessment, the decisions and the evidence.
+    tools: [confirm_risk_assessment, attach_evidence]
+  annex_i.i.2.a:
+    support: >-
+      The one Part I requirement with a mechanism rather than an evidence
+      slot. Your SBOM is checked daily against the OSV database — *every*
+      advisory affecting a component you ship, not only the exploited ones —
+      and separately against CISA's Known Exploited Vulnerabilities catalogue,
+      which flags the subset known to be under attack. Severity is carried
+      through from the advisory where it has one and left blank where it does
+      not, because a fabricated score on a compliance record is worse than no
+      score. Every match is a candidate you work to a disposition, and a
+      dismissal needs a VEX justification — that the vulnerable code is not in
+      the execute path, cannot be controlled by an adversary, or is already
+      mitigated. Each of those is a statement that the vulnerability lacks the
+      potential to be effectively used under practical operational conditions,
+      which is the Article 3(41) test this requirement turns on, so the record
+      of having worked a candidate is the evidence the product shipped without
+      a known exploitable vulnerability. Note the distinction: KEV lists what
+      is *actively exploited*, which is a narrower set than *exploitable*, so a
+      clean KEV result does not answer this requirement on its own.
+
+      This requirement is about a *moment* — being made available on the market
+      — so `record_release` is where it is answered. Recording a version checks
+      that a scan actually ran, that it reached its feeds, that it is recent,
+      and that no candidate is still unresolved, then freezes the result as
+      evidence tied to that version. It refuses when the record cannot support
+      the claim, which is not a finding that your product is affected. You can
+      ship anyway with a written reason, and that reason is kept on the
+      determination and in the audit trail. What is found afterwards does not
+      make a shipped release non-conformant: that is Article 13(8) and Annex I
+      Part II(2).
+
+      Candidates are ordered by EPSS, the daily model of how likely a CVE is to
+      be exploited in the next 30 days, so the queue is worked in an order that
+      means something. There is no threshold anywhere: a cutoff would be a
+      compliance policy dressed as a fact, and every candidate still needs a
+      determination. Both numbers are shown, because probability alone
+      misleads — 5% sounds negligible and can be the 92nd percentile among all
+      scored CVEs. A CVE the model has not scored is shown as unscored rather
+      than as a low score. If the predicted likelihood of something you
+      dismissed rises materially, it comes back for a second look, carrying
+      both the old and new figures. EPSS informs that judgement and never makes
+      it: it cannot dismiss anything, and it is never on its own a reason to.
+    tools:
+      [record_sbom, scan_advisories, confirm_advisory, dismiss_advisory,
+       record_release]
+  annex_i.i.2.b: {support: evidence, tools: []}
+  annex_i.i.2.c: {support: evidence, tools: []}
+  annex_i.i.2.d: {support: evidence, tools: []}
+  annex_i.i.2.e: {support: evidence, tools: []}
+  annex_i.i.2.f: {support: evidence, tools: []}
+  annex_i.i.2.g: {support: evidence, tools: []}
+  annex_i.i.2.h: {support: evidence, tools: []}
+  annex_i.i.2.i: {support: evidence, tools: []}
+  annex_i.i.2.j: {support: evidence, tools: []}
+  annex_i.i.2.k: {support: evidence, tools: []}
+  annex_i.i.2.l: {support: evidence, tools: []}
+  annex_i.i.2.m: {support: evidence, tools: []}
+
+  # Part II — vulnerability handling. A process, so more of it is automatable.
+  annex_i.ii.1:
+    support: >-
+      Both halves are done rather than recorded: the bill of materials is
+      stored by value, and the daily scan is the identification half against
+      it.
+    tools: [record_sbom, scan_advisories, list_advisory_candidates]
+  annex_i.ii.2:
+    support: >-
+      Vulnerability records carry status and a remediation reference, and
+      confirmed advisories become records to work. The remediation is
+      engineering; the tracking is here. There is no clock on "without delay"
+      — unlike Article 14, the regulation sets no deadline, which is exactly
+      why it drifts.
+    tools: [record_vulnerability, update_vulnerability, confirm_advisory]
+  annex_i.ii.3:
+    support: >-
+      Evidence only. A single test report satisfies the checklist
+      indefinitely: the requirement says effective and *regular*, and cadence
+      is not modelled.
+    tools: [attach_evidence]
+  annex_i.ii.4:
+    support: >-
+      Nothing. The tool holds every input — the vulnerability, the affected
+      component, the fix reference, the severity — and the dismissal path
+      already produces VEX for *not affected*, but the *affected and fixed*
+      advisory is not generated.
+    tools: []
+  annex_i.ii.5:
+    support: >-
+      The policy URL is recorded and surfaced by the readiness check before an
+      incident rather than during one. It is never fetched, so a URL that
+      404s satisfies the field and not the requirement.
+    tools: [set_submitter_profile, check_reporting_readiness]
+  annex_i.ii.6:
+    support: >-
+      The security contact address is recorded alongside the disclosure
+      policy.
+    tools: [set_submitter_profile]
+  annex_i.ii.7:
+    support: >-
+      Evidence only. The security of your update channel is a property of the
+      channel.
+    tools: [attach_evidence]
+  annex_i.ii.8:
+    support: >-
+      Evidence only. Dissemination and the advisory messages that accompany an
+      update happen outside the tool.
+    tools: [attach_evidence]
+
+# The stock answer for the twelve Part I product properties, written once
+# because twelve hand-written answers become twelve slightly different claims
+# about the same thing.
+#
+# Kept to one line on purpose. The full version of this answer — including the
+# part about a tick meaning only that somebody attached a document — belongs in
+# the Part I section lede, said once. Printed against all twelve rows it was
+# three hundred words of identical text, which reads as padding and buries the
+# two rows in that section where the answer is genuinely different.
+evidence_answer: >-
+  Applicability recorded from your own risk assessment, evidence held by value
+  with its provenance and tied to the release it describes, and a gap reported
+  in the technical file until it is there.
+
+# Ledes for the sections whose rows come from the catalogue rather than from
+# `sections` above. Here so that all of the page's prose is in one file.
+annex_ledes:
+  part_i: >-
+    Fourteen properties of the product itself: the software either encrypts
+    data at rest or it does not, and no compliance tool changes that. For
+    twelve of them the honest ceiling is the same — the tool records whether
+    your assessment makes the requirement applicable and why, holds the
+    evidence that the engineering happened, hashed with its provenance, and
+    reports a gap in the technical file until it is there. It cannot make the
+    software behave this way, and a tick against one of these means only that
+    somebody attached a document. What it does do is put the requirement, and
+    the risk from your own assessment that triggered it, in front of the agent
+    writing the code. The two rows where the answer is different are I(1) and
+    I(2)(a).
+
+    Evidence is tied to the release it describes, because these requirements
+    attach to the product *as placed on the market* — a test report proves
+    something about one build. Record a new release and anything evidenced
+    only against an earlier one reports as stale and stops the technical file
+    reporting it settled. Evidence carrying no release at all is reported as
+    unversioned rather than stale: the tool does not know which build it
+    describes, and saying so beats guessing.
+  part_ii: >-
+    Eight vulnerability handling requirements. These are a process rather than
+    a property, which is why more of this section can be carried by tooling.
+  annex_vii: >-
+    The eight sections the technical file has to contain. Assembled as a gap
+    report first — what is missing matters more than the prose — and freezable
+    with a content hash once it is complete.
+
+# ---- Annex VII ---------------------------------------------------------------
+#
+# Keyed by slot id in `src/cra/regulation/annex_vii.yaml`; titles and anchors
+# come from that catalogue at render time.
+
+annex_vii:
+  tf.1:
+    support: >-
+      Assembled from what you recorded about the product — its intended
+      purpose, where it runs, and the class you settled. Annex II user
+      information is one line here, satisfied by attachment.
+    tools: [classify_product, attach_evidence]
+  tf.2:
+    support: >-
+      Evidence, attached against the processes it describes.
+    tools: [attach_evidence]
+  tf.3:
+    support: >-
+      Filled from the confirmed assessment itself, not a summary of it. The
+      slot does not report complete while the assessment is a draft or has
+      gone stale.
+    tools: [confirm_risk_assessment]
+  tf.4:
+    support: >-
+      Filled from the Article 13(8) determination rather than an attachment.
+      It completes only when both the dates and the reasoning are recorded,
+      because the reasoning is what this section is for.
+    tools: [set_support_period]
+  tf.5:
+    support: >-
+      Recorded as evidence. The standards listed here are not monitored for
+      change — see 13(14).
+    tools: [attach_evidence]
+  tf.6:
+    support: >-
+      Test reports attached as evidence, hashed with their provenance.
+    tools: [attach_evidence]
+  tf.7:
+    support: >-
+      Generated from the frozen file and bound to its content hash.
+    tools: [generate_declaration_of_conformity]
+  tf.8:
+    support: >-
+      Filled from the bill of materials you recorded, stored by value.
+    tools: [record_sbom]

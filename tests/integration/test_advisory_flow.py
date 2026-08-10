@@ -443,3 +443,49 @@ def test_every_vex_justification_can_actually_be_stored(
     )
     assert r["ok"] is True, r.get("error")
     assert r["candidate"]["disposition"] == justification
+
+
+# ---- the one door between a candidate and a record -----------------------------
+
+
+def test_confirming_says_what_was_asserted_and_on_what(product, owner, feeds):
+    """An end-to-end run was refused for an empty rationale, answered "the
+    scanner found it", and was accepted.
+
+    The refusal one call earlier states the rule in so many words — a feed match
+    is not the check — and then the sentence saying the check *was* a feed match
+    went through. What ended on the record was a human determination that the
+    product is affected, an open incident and a 24-hour clock, with nothing in
+    the response marking it apart from a determination somebody made.
+
+    Not refused. No mechanical test reads a sentence, and a length rule would
+    teach padding — the line already taken for Annex I justifications and the
+    Article 13(3) statements. What changes is that the assertion and what it
+    rests on arrive together, at the moment it becomes a legal deadline.
+    """
+    cid = _exploited_id(product, owner)
+    out = _call("confirm_advisory", product, owner,
+                candidate_id=cid, rationale="the scanner found it")
+    assert out["ok"] is True
+    said = out["recorded_determination"]
+    assert "'the scanner found it'" in said
+    assert "human determination" in said
+    assert "A feed match is not that determination" in said
+    assert "review_this_reason" in out
+
+
+def test_a_reason_of_substance_is_not_flagged(product, owner, feeds):
+    """The surfacing has to be quiet when there is something to read, or it is
+    noise and gets ignored."""
+    cid = _exploited_id(product, owner)
+    out = _call(
+        "confirm_advisory", product, owner, candidate_id=cid,
+        rationale=(
+            "We ship 2.14.1 in the gateway image and the JNDI lookup path is "
+            "reachable from the request logger, confirmed against the running "
+            "container."
+        ),
+    )
+    assert out["ok"] is True
+    assert "review_this_reason" not in out
+    assert "recorded_determination" in out

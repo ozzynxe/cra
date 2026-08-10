@@ -455,7 +455,16 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         For an actively exploited advisory **this starts the Article 14 clocks**
         — an incident opens and the 24h/72h deadlines are created. Only call it
         once the user has actually checked, and put what they checked in
-        `rationale`; a feed match is not that check.
+        `rationale`.
+
+        **A feed match is not that check, and "the scanner found it" is not a
+        rationale.** A candidate is a match between an advisory and a version
+        string in the bill of materials. What turns it into a determination is
+        knowledge the feed does not have: the version actually shipped, whether
+        the vulnerable code path is reachable, how it is configured. If the user
+        has not established that, ask them before calling this — the reply
+        attributes the determination to them and, for an exploited advisory,
+        notifies a CSIRT on it.
 
         Awareness defaults to when this service notified them, not now. That is
         deliberate and usually correct: the clock runs from awareness, and the

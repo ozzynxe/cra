@@ -648,6 +648,49 @@ def confirm_advisory(
             "reasonably have known until later, correct it with "
             "update_vulnerability(became_aware_at=..., awareness_rationale=...)."
         )
+
+    # What this call just asserted, and on what.
+    #
+    # This is the one door between a candidate and a record. `list_advisory_
+    # candidates` insists a candidate is "a match between an advisory and a
+    # version string in the SBOM — not a finding that the product is affected",
+    # and the refusal above says a feed match is not the check. An end-to-end run
+    # was refused for an empty rationale, answered "the scanner found it", and
+    # was accepted — so the record now held a human determination, an open
+    # incident and a 24-hour clock resting on the thing the refusal had just
+    # ruled out, with nothing in the response marking it apart from a
+    # determination somebody made.
+    #
+    # Surfaced, not judged. No mechanical test reads a sentence, and a length
+    # rule that refused would teach the next caller to pad — the line already
+    # taken for Annex I justifications and the 13(3) statements. What changes is
+    # that the assertion and what it rests on arrive together, at the moment it
+    # becomes a legal deadline.
+    from cra.server.conformity import _THIN_JUSTIFICATION_CHARS  # local: cycle
+
+    reason = rationale.strip()
+    created["recorded_determination"] = (
+        f"You have recorded that this product is affected by "
+        f"{snapshot['advisory_id']}, on the stated basis: {reason!r}. That is a "
+        "human determination, attributed to you in the audit trail"
+        + (
+            ", and it opened an incident and started the Article 14 clocks above."
+            if exploited
+            else "."
+        )
+        + " A feed match is not that determination — it is a match between an "
+        "advisory and a version string in your bill of materials. What makes it "
+        "one is knowing the version you actually ship, whether the vulnerable "
+        "code path is reachable, and how it is configured."
+    )
+    if len(reason) < _THIN_JUSTIFICATION_CHARS:
+        created["review_this_reason"] = (
+            f"The basis recorded is {len(reason)} characters: {reason!r}. It is "
+            "kept as written and this is not a refusal — but it is what an "
+            "auditor reads when asking why this product was reported as "
+            "affected, and it is what a CSIRT was notified on. Add to it with "
+            "update_vulnerability(awareness_rationale=...) if there is more."
+        )
     return created
 
 

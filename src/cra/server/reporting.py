@@ -77,15 +77,35 @@ def _overdue_now(views: list[dict]) -> list[dict]:
     return [v for v in views if v["state"] == ObligationState.OVERDUE.value]
 
 
-def _backdated_note(aware: datetime, now: datetime, overdue: list[dict]) -> Optional[str]:
+def _backdated_note(
+    aware: datetime,
+    now: datetime,
+    overdue: list[dict],
+    *,
+    anchor_supplied: bool = True,
+) -> Optional[str]:
     """Say plainly that a clock started in the past and what it already cost.
 
     A backdated anchor can produce obligations that are already overdue. That
     has to be stated, not left to the reader to infer from a negative
     `hours_remaining` — the whole reason the anchor is being fixed is that the
     tool used to imply someone was on time when they were not.
+
+    **Silent when the anchor was assumed rather than given**, and that guard is
+    the point of the parameter. Omitting `became_aware_at` defaults the anchor
+    to now, and `now` is then recomputed microseconds later downstream — so
+    `aware < now` by a hair, and this fired with "Clocks anchored 0.0h ago, at
+    the time you became aware — not at the time you recorded it." Which is the
+    opposite of what happened, next to a soothing "Nothing is overdue yet" that
+    is true only of the assumption.
+
+    `anchor_assumed` already says the honest thing in that case. Two fields
+    contradicting each other in one response is worse than one, and the
+    comforting one appeared first — in this product that is the direction that
+    costs, because the risk being managed is a team believing a statutory
+    deadline is further away than it is.
     """
-    if aware >= now:
+    if not anchor_supplied or aware >= now:
         return None
     late_by = round((now - aware).total_seconds() / 3600, 1)
     if not overdue:
@@ -280,7 +300,10 @@ def record_vulnerability(
             "actively_exploited": vuln.actively_exploited,
         }
         if actively_exploited:
-            result.update(_cascade(db, vuln, became_aware_at=aware, actor_id=actor_id))
+            result.update(_cascade(
+                db, vuln, became_aware_at=aware, actor_id=actor_id,
+                anchor_supplied=became_aware_at is not None,
+            ))
             result["became_aware_at"] = aware.isoformat()
             if became_aware_at is None:
                 # A silent default on this field is what made the tool report
@@ -302,7 +325,14 @@ def record_vulnerability(
         return result
 
 
-def _cascade(db: Session, vuln: Vulnerability, *, became_aware_at: datetime, actor_id: str) -> dict:
+def _cascade(
+    db: Session,
+    vuln: Vulnerability,
+    *,
+    became_aware_at: datetime,
+    actor_id: str,
+    anchor_supplied: bool = True,
+) -> dict:
     """Open an incident for an actively exploited vulnerability and start its clocks."""
     existing = db.execute(
         select(Incident).where(Incident.vulnerability_id == vuln.id)
@@ -364,7 +394,9 @@ def _cascade(db: Session, vuln: Vulnerability, *, became_aware_at: datetime, act
             "aware, via the CRA Single Reporting Platform to your CSIRT."
         ),
     }
-    note = _backdated_note(became_aware_at, now, overdue)
+    note = _backdated_note(
+        became_aware_at, now, overdue, anchor_supplied=anchor_supplied
+    )
     if note:
         out["backdated"] = note
     if overdue:
@@ -543,6 +575,8 @@ def update_vulnerability(
 
         if newly_exploited:
             anchor = aware or now
+            # `anchor` here is either supplied or already recorded, never
+            # assumed at this moment, so the backdated note is meaningful.
             result.update(_cascade(db, vuln, became_aware_at=anchor, actor_id=actor_id))
             result["became_aware_at"] = anchor.isoformat()
             if became_aware_at is None:

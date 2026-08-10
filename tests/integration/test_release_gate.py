@@ -80,7 +80,12 @@ def product(owner, make_releasable):
         in_scope=True,
         rationale="Ordinary product with digital elements.",
     )
-    _call("record_sbom", pid, owner, sbom=SBOM, source_ref="git:abc1234")
+    # Tagged with the version these tests go on to release. An untagged SBOM is
+    # a real state and is exercised deliberately below — it must not be the
+    # accidental default here, or every test would be releasing a build whose
+    # component list was never the one scanned.
+    _call("record_sbom", pid, owner, sbom=SBOM, source_ref="git:abc1234",
+          version="1.0.0")
     make_releasable(_call, pid, owner)
     return pid
 
@@ -252,6 +257,10 @@ def test_the_override_is_written_into_the_determination_and_the_trail(
 
 
 def test_the_determination_is_tied_to_the_version_and_hashed(product, owner, clean_scan):
+    # The SBOM names the build being released, so the scan covers it. Shipping
+    # 2.4.0 off the 1.0.0 component list is its own test, below.
+    _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:def5678",
+          version="2.4.0")
     _call("scan_advisories", product, owner)
     out = _release(product, owner, version="2.4.0")
     rows = _evidence(product)
@@ -479,7 +488,10 @@ def test_nothing_the_refusal_said_is_dropped_when_it_goes_through(
     across without the 22. The full objects the refusal returned come too."""
     _call("scan_advisories", product, owner)
     refused = _release(product, owner, version="1.0.0")
-    out = _release(product, owner, version="1.0.1", accepted_rationale="fine")
+    # Same version, so the two calls face the same blockers — the point of the
+    # assertion is that nothing is dropped between refusing and accepting, and a
+    # different version would add the build blocker to only one of them.
+    out = _release(product, owner, version="1.0.0", accepted_rationale="fine")
     assert [b["blocker"] for b in out["blockers_accepted"]] == [
         b["blocker"] for b in refused["blockers"]
     ]
@@ -537,3 +549,101 @@ def test_a_scanned_release_still_reports_its_count(product, owner, dirty_scan):
     out = _release(product, owner, accepted_rationale="fine")
     assert out["open_candidates"] == 1
     assert "open_candidates_note" not in out
+
+
+# ---- a scan is evidence about one build ----------------------------------------
+#
+# The seven-day bound is a time check, not a build check. An end-to-end run
+# recorded 1.0.0 and then 2.0.0 minutes later — no new SBOM, no new scan — and
+# 2.0.0's frozen I(2)(a) position carried 1.0.0's evidence with nothing said.
+# Everything else here already treats evidence as a claim about one build; the
+# scan was the only kind that crossed a version boundary silently.
+
+
+def test_a_new_version_cannot_ride_on_the_previous_build_s_scan(
+    product, owner, clean_scan
+):
+    """The exact sequence from the run that found this."""
+    _call("scan_advisories", product, owner)
+    assert _release(product, owner, version="1.0.0")["ok"] is True
+
+    out = _release(product, owner, version="2.0.0")
+    assert out["ok"] is False
+    blocker = next(
+        b for b in out["blockers"] if b["blocker"] == "scan_covers_a_different_build"
+    )
+    assert blocker["scanned_build"] == "1.0.0"
+    assert blocker["releasing"] == "2.0.0"
+
+
+def test_re_recording_the_bill_of_materials_clears_it(product, owner, clean_scan):
+    """The way through is the work, not the override: say what 2.0.0 ships and
+    check that."""
+    _call("scan_advisories", product, owner)
+    _release(product, owner, version="1.0.0")
+
+    _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:2222222",
+          version="2.0.0")
+    _call("scan_advisories", product, owner)
+
+    out = _release(product, owner, version="2.0.0")
+    assert out["ok"] is True, out
+    assert "accepted_despite" not in out
+
+
+def test_an_sbom_with_no_version_is_reported_not_blocked(
+    product, owner, clean_scan
+):
+    """Unknown is not a mismatch, and it is not a finding either.
+
+    A bill of materials carrying no version cannot show it describes this build
+    — and cannot show it describes a different one. Blocking would treat an
+    absence of knowledge as knowledge of absence, and would fire on the ordinary
+    case of an untagged SBOM, which teaches people to reach for the override.
+
+    Same rule `evidence_currency` already applies: `unversioned` is reported and
+    is not a gap.
+    """
+    _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:3333333")
+    _call("scan_advisories", product, owner)
+
+    out = _release(product, owner, version="7.0.0")
+    assert out["ok"] is True
+    assert not any(
+        b["blocker"] == "scan_covers_a_different_build"
+        for b in out.get("blockers_accepted", [])
+    )
+    assert "carries no version" in out["scan_build_unknown"]
+    assert "Not a finding either way" in out["scan_build_unknown"]
+
+
+def test_the_frozen_determination_records_which_build_was_scanned(
+    product, owner, clean_scan
+):
+    """A waived release still has to carry the distinction into the artefact.
+    The refusal is transient; the determination is kept for ten years."""
+    _call("scan_advisories", product, owner)
+    _release(product, owner, version="1.0.0")
+    _release(product, owner, version="2.0.0", accepted_rationale="docs-only bump")
+
+    bodies = [json.loads(r.inline_body) for r in _evidence(product)]
+    frozen = next(b for b in bodies if b["release"] == "2.0.0")
+    assert frozen["scan"]["sbom_applies_to_version"] == "1.0.0"
+
+
+def test_an_sbom_keeps_the_version_it_was_recorded_for(product, owner):
+    """`record_sbom(version="2.0.0")` before 2.0.0 exists is the ordinary order
+    of work — record what you are about to ship, scan it, then release.
+
+    It used to be filed against the latest *existing* release instead, so an
+    SBOM explicitly labelled 2.0.0 became evidence for 1.0.0. The comment beside
+    that code already said doing so would be worse than leaving it untagged.
+    """
+    _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:1111111",
+          version="1.0.0")
+    _call("scan_advisories", product, owner)
+    _release(product, owner, version="1.0.0")
+
+    out = _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:4444444",
+                version="2.0.0")
+    assert out["applies_to_version"] == "2.0.0"

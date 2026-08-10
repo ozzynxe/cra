@@ -210,9 +210,55 @@ def _exploited_blocker(vulns) -> Optional[dict]:
     }
 
 
+def _scan_build_blocker(scan, version: str) -> Optional[dict]:
+    """Did the scan behind this release actually check this build?
+
+    The seven-day bound is a *time* check. A major version recorded minutes
+    after the last one passes it while resting on the previous build's component
+    list — which an end-to-end run did: 1.0.0 and then 2.0.0, no new SBOM, no
+    new scan, and 2.0.0's frozen Annex I Pt I(2)(a) position carrying 1.0.0's
+    evidence with nothing said about it.
+
+    Annex I attaches to the product *as placed on the market*, and this is the
+    one requirement specifically about that moment. Everything else in this
+    codebase already treats evidence as a claim about one build —
+    `evidence_currency` moved thirteen requirements to "evidenced against an
+    earlier release" the instant the version moved. A scan is evidence too, and
+    it was the only kind that crossed a version boundary silently.
+
+    Unknown is not a match. A scan whose SBOM carried no version cannot show it
+    covered this one, and saying so is the whole point.
+    """
+    if scan is None:
+        return None                      # `never_scanned` already covers it
+    scanned = getattr(scan, "sbom_applies_to_version", None)
+    if scanned is None or scanned == version:
+        # Unknown is not a mismatch. A bill of materials carrying no version
+        # cannot show it describes this build, and it cannot show it describes a
+        # different one either — so it is reported and not blocked, exactly as
+        # `evidence_currency` reports `unversioned` without counting it a gap.
+        # Blocking on an absence would also make the gate fire on the ordinary
+        # case of an untagged SBOM, and a gate that fires on the ordinary case
+        # teaches people to reach for the override.
+        return None
+    return {
+        "blocker": "scan_covers_a_different_build",
+        "detail": (
+            f"The last scan ran against the component list recorded for "
+            f"{scanned!r}, not {version!r}. Annex I Pt I(2)(a) is about the "
+            "product as placed on the market, so a determination for this "
+            "release cannot rest on a different build's components. "
+            f"record_sbom(version={version!r}) with what this build ships, then "
+            "scan_advisories()."
+        ),
+        "scanned_build": scanned,
+        "releasing": version,
+    }
+
+
 def _blockers(
     state, scan, open_count: int, exploited_open: int, released_at: datetime,
-    exploited_vulns=(),
+    exploited_vulns=(), version: str = "",
 ) -> list[dict]:
     """What stands between this release and a clean I(2)(a) determination.
 
@@ -236,6 +282,9 @@ def _blockers(
     exploited = _exploited_blocker(list(exploited_vulns))
     if exploited:
         out.append(exploited)
+    build = _scan_build_blocker(scan, version) if version else None
+    if build:
+        out.append(build)
     if scan is None:
         out.append(
             {
@@ -354,6 +403,14 @@ def record_release(
                 "components_checked": scan.components_checked,
                 "findings": scan.findings,
                 "exploited": scan.exploited,
+                # Which build's component list this scan checked. In the frozen
+                # determination this is the difference between "we checked what
+                # we shipped" and "we checked something else" — and a waived
+                # release has to carry that distinction into the artefact, not
+                # only into the refusal it overrode.
+                "sbom_applies_to_version": getattr(
+                    scan, "sbom_applies_to_version", None
+                ),
             }
             if scan
             else None
@@ -371,7 +428,7 @@ def record_release(
 
     blockers = _blockers(
         state, scan, open_count, exploited_open, when,
-        exploited_vulns=exploited_vulns,
+        exploited_vulns=exploited_vulns, version=version,
     )
     if blockers and not accepted_rationale.strip():
         return {
@@ -534,6 +591,7 @@ def record_release(
 
     evidence_id, digest, lifecycle = store_backend.mutate(product_id, _apply)
 
+    scanned_build = getattr(scan, "sbom_applies_to_version", None) if scan else None
     versioning = (
         f"Evidence attached from now on ties to {version} by default; anything "
         "evidenced only against earlier releases now reports as stale."
@@ -557,6 +615,14 @@ def record_release(
             "actively exploited."
         ),
     }
+    if scan is not None and scanned_build is None:
+        out["scan_build_unknown"] = (
+            "The bill of materials behind this scan carries no version, so "
+            f"nothing here shows it describes {version} rather than an earlier "
+            "build. Not a finding either way — it is what is not established. "
+            f"record_sbom(version={version!r}) before the next release and the "
+            "determination can say which build it checked."
+        )
     if scan_view is None:
         out["open_candidates_note"] = (
             "Null, not zero. No scan has ever run for this product, so nothing "

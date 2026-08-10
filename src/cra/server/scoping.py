@@ -787,20 +787,23 @@ def record_sbom(
         # two disagreed about one requirement.
         _member(state, actor_id, minimum=Role.EDITOR)
 
-        # Which build this bill of materials describes. `version` is the
-        # caller's own label and is normally a release; when it names one, that
-        # is a better answer than the default, and when it does not the SBOM
-        # describes what is current. Getting this wrong the other way — tagging
-        # an SBOM for 2.0.0 as evidence for 1.0.0 because 1.0.0 happened to be
-        # the latest release — would be worse than leaving it untagged.
+        # Which build this bill of materials describes.
+        #
+        # A caller's `version` is taken at face value even when no release by
+        # that name exists yet, because that is the ordinary order of work:
+        # record the SBOM for the build you are about to ship, scan it, then
+        # record the release. Until 2026-08-10 an unknown version fell back to
+        # the latest *existing* release, so an SBOM explicitly labelled 2.0.0
+        # was filed as evidence for 1.0.0 — which the comment that used to sit
+        # here correctly called worse than leaving it untagged, while the code
+        # beneath it did exactly that. `record_release` stores versions verbatim
+        # and never parses them, so there is nothing to validate against anyway.
+        #
+        # With no `version`, the SBOM describes what currently ships.
         from cra.server import annex  # local: annex imports this module
 
-        known = {r.version for r in state.releases}
         release = annex.latest_release(state)
-        if version and version in known:
-            applies_to = version
-        else:
-            applies_to = release.version if release else None
+        applies_to = version or (release.version if release else None)
 
         evidence = Evidence(
             product_id=product_id,

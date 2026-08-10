@@ -383,3 +383,42 @@ def test_the_final_report_still_waits_for_its_own_anchor(product, owner):
             .all()
         }
     assert stages == {"early_warning", "notification"}
+
+
+def test_an_assumed_anchor_does_not_also_claim_to_be_awareness(product, owner):
+    """Two fields in one response cannot both be right, and the wrong one was
+    the comforting one.
+
+    Omitting `became_aware_at` anchors the clocks at the moment of recording.
+    `anchor_assumed` says so. But `backdated` was emitted unconditionally, and
+    because the anchor defaults to now while `now` is recomputed microseconds
+    later downstream, it fired with "Clocks anchored 0.0h ago, at the time you
+    became aware — not at the time you recorded it. Nothing is overdue yet."
+
+    It appeared first. In this product the reassuring direction is the one that
+    costs: the whole risk being managed is a team believing a statutory deadline
+    is further away than it legally is.
+    """
+    out = _call(
+        "record_vulnerability", product, owner,
+        summary="Request-smuggling flaw a customer reports being exploited.",
+        actively_exploited=True,
+    )
+    assert out["ok"] is True
+    assert "anchor_assumed" in out
+    assert "backdated" not in out
+
+
+def test_a_real_backdate_still_says_so(product, owner):
+    """The note earns its place only if it still fires when an anchor genuinely
+    is in the past — which is the case it was written for."""
+    aware = (datetime.now(UTC) - timedelta(days=3)).isoformat()
+    out = _call(
+        "record_vulnerability", product, owner,
+        summary="Request-smuggling flaw reported by a customer three days ago.",
+        actively_exploited=True,
+        became_aware_at=aware,
+    )
+    assert "backdated" in out
+    assert "anchor_assumed" not in out
+    assert "ALREADY OVERDUE" in out["backdated"]

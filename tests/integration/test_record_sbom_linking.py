@@ -206,10 +206,21 @@ def test_a_version_naming_a_real_release_wins_over_the_default(shipped, owner):
     assert out["applies_to_version"] == "1.0.0", "an explicit real release must win"
 
 
-def test_a_version_that_is_not_a_release_does_not_mistag_the_sbom(shipped, owner):
-    """The trap worth avoiding: `version` is a free-text label. Tagging an SBOM
-    built for 2.0.0 as evidence for 1.0.0, because 1.0.0 happened to be the
-    latest *release*, would be a false claim about which build it describes."""
+def test_a_version_that_is_not_yet_a_release_is_kept_as_given(shipped, owner):
+    """An unreleased label is taken at face value, and this test used to assert
+    the opposite while its own docstring argued for this.
+
+    It said that tagging an SBOM built for 2.0.0 as evidence for 1.0.0 "would be
+    a false claim about which build it describes" — and then asserted exactly
+    that, because an unknown version fell back to the latest existing release.
+
+    Recording the bill of materials for the build you are about to ship, before
+    it is a release, is the ordinary order of work. The fallback also made the
+    Annex I Pt I(2)(a) gate unclearable: releasing 2.0.0 was refused because the
+    scan covered 1.0.0, and re-recording the SBOM as 2.0.0 filed it as 1.0.0
+    again. `record_release` stores versions verbatim and never parses them, so
+    there is nothing to validate a label against in any case.
+    """
     out = _call(
         "record_sbom",
         shipped,
@@ -218,10 +229,10 @@ def test_a_version_that_is_not_a_release_does_not_mistag_the_sbom(shipped, owner
         source_ref="git:eee",
         version="2.0.0-rc1",
     )
-    assert out["applies_to_version"] == "1.0.0"
+    assert out["applies_to_version"] == "2.0.0-rc1"
     with session_scope() as s:
         row = s.query(Evidence).filter(Evidence.id == out["evidence_id"]).one()
-        assert "2.0.0-rc1" in row.title, "the label still travels, on the title"
+        assert "2.0.0-rc1" in row.title
 
 
 # ---- no checklist, and no crash ------------------------------------------------------

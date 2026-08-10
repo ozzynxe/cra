@@ -858,6 +858,12 @@ class AdvisoryScan(Base):
 
     # Which bill of materials was checked, so a scan can be tied to a build.
     sbom_source_ref: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # And which build that bill of materials described. `sbom_source_ref` alone
+    # could not answer "was this release's component list the one scanned",
+    # which is the question the Annex I Pt I(2)(a) gate turns on. NULL means the
+    # SBOM carried no version, or the scan predates this column — unknown, not
+    # a match.
+    sbom_applies_to_version: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         # The gate's question: what is the most recent scan for this product.

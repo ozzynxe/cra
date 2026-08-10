@@ -141,6 +141,7 @@ def scan_product(product_id: str) -> dict:
         sbom = _latest_sbom(db, product_id)
         sbom_body = sbom.inline_body if sbom else None
         sbom_ref = sbom.source_ref if sbom else None
+        sbom_version = getattr(sbom, "applies_to_version", None) if sbom else None
 
     if not sbom_body:
         return {
@@ -191,11 +192,12 @@ def scan_product(product_id: str) -> dict:
     )
 
     new, updated, reopened = _persist(product_id, result)
-    _record_scan(product_id, result, sbom_ref)
+    _record_scan(product_id, result, sbom_ref, sbom_version)
     return {
         "ok": True,
         "scanned": True,
         "sbom_source_ref": sbom_ref,
+        "sbom_applies_to_version": sbom_version,
         "components_checked": result.components_checked,
         "coverage": result.coverage_note,
         "sources_ok": result.sources_ok,
@@ -224,7 +226,12 @@ def scan_product(product_id: str) -> dict:
     }
 
 
-def _record_scan(product_id: str, result, sbom_ref: Optional[str]) -> None:
+def _record_scan(
+    product_id: str,
+    result,
+    sbom_ref: Optional[str],
+    sbom_version: Optional[str] = None,
+) -> None:
     """Leave a trace that a scan happened, even when it found nothing.
 
     Especially when it found nothing. `_persist` writes candidate rows, so a
@@ -249,6 +256,7 @@ def _record_scan(product_id: str, result, sbom_ref: Optional[str]) -> None:
                 findings=len(result.findings),
                 exploited=len(result.exploited),
                 sbom_source_ref=sbom_ref,
+                sbom_applies_to_version=sbom_version,
             )
         )
 

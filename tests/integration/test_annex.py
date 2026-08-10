@@ -508,10 +508,51 @@ def test_the_draft_names_its_missing_fields_rather_than_inventing_them(scoped, o
     assert "Not signed" in r["markdown"]
 
 
+def test_a_legal_name_alone_does_not_satisfy_annex_v_2(scoped, owner):
+    """Issue #39. Annex V(2) is "Name **and address** of the manufacturer", and
+    the field was filled from `legal_name` alone — there was no address field
+    on `SubmitterProfile` at all.
+
+    So V(2) could never be complete and was never reported incomplete. #28 made
+    sign_off refuse a *blank* mandatory field; this one is not blank, it is
+    incomplete, which that check cannot see. The declaration signed with an
+    expressly required element silently missing and `missing_fields: []` beside
+    it — a gap reported as settled, which is the sharpest form of what this
+    product exists to prevent.
+    """
+    _fill_file(scoped, owner)
+    _call("assemble_technical_file", scoped, owner, finalize=True)
+    _call("set_submitter_profile", scoped, owner, legal_name="Palletgraph Oy")
+
+    doc = _declare(scoped, owner, standards_applied="EN 18031-1 applied in full")
+    entry = next(m for m in doc["missing_fields"] if m["field"] == "doc.2")
+    # Named as incomplete rather than absent: the name *is* recorded, and
+    # saying "not recorded" beside a recorded name reads as a bug.
+    assert entry["have"] == "Palletgraph Oy"
+    assert "no address" in entry["why"]
+    assert "set_submitter_profile(postal_address=" in entry["why"]
+
+
+def test_recording_the_address_completes_annex_v_2(scoped, owner):
+    """The other side of #39 — both halves, and the field carries both."""
+    _fill_file(scoped, owner)
+    _call("assemble_technical_file", scoped, owner, finalize=True)
+    _call(
+        "set_submitter_profile", scoped, owner,
+        legal_name="Palletgraph Oy",
+        postal_address="Mannerheimintie 1, 00100 Helsinki, Finland",
+    )
+    doc = _declare(scoped, owner, standards_applied="EN 18031-1 applied in full")
+    assert [m["field"] for m in doc["missing_fields"]] == []
+    assert "Palletgraph Oy" in doc["markdown"]
+    assert "00100 Helsinki" in doc["markdown"]
+
+
 def test_the_declaration_binds_to_the_file_it_rests_on(scoped, owner):
     _fill_file(scoped, owner)
     tf = _call("assemble_technical_file", scoped, owner, finalize=True)
-    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy")
+    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy",
+          postal_address="Mannerheimintie 1, 00100 Helsinki, Finland")
     doc = _declare(scoped, owner,
         standards_applied="EN 18031-1 applied in full",
     )
@@ -714,7 +755,8 @@ def test_the_declaration_slot_is_deferred_not_missing(scoped, owner):
 def test_the_full_chain_runs_freeze_declare_refreeze_sign(scoped, owner):
     """The end-to-end sequence, in the order the regulation implies."""
     _fill_file(scoped, owner)
-    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy")
+    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy",
+          postal_address="Mannerheimintie 1, 00100 Helsinki, Finland")
 
     first = _call("assemble_technical_file", scoped, owner, finalize=True)
     assert first["finalized"] is True
@@ -791,7 +833,8 @@ def test_a_declaration_with_a_blank_mandatory_field_cannot_be_signed(scoped, own
 def test_filling_the_field_lets_the_declaration_be_signed(scoped, owner):
     """The refusal has to be recoverable, and the route out has to work."""
     _fill_file(scoped, owner)
-    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy")
+    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy",
+          postal_address="Mannerheimintie 1, 00100 Helsinki, Finland")
     _call("assemble_technical_file", scoped, owner, finalize=True)
     doc = _declare(scoped, owner,
                 standards_applied="EN 18031-1 applied in full")
@@ -831,7 +874,8 @@ def test_a_clean_product_carries_no_qualifications(scoped, owner):
     """The list has to be empty when there is nothing to say, or it becomes
     noise nobody reads — which is how the wall of green happened."""
     _fill_file(scoped, owner)
-    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy")
+    _call("set_submitter_profile", scoped, owner, legal_name="Acme Oy",
+          postal_address="Mannerheimintie 1, 00100 Helsinki, Finland")
     _call("assemble_technical_file", scoped, owner, finalize=True)
     _declare(scoped, owner,
           standards_applied="EN 18031-1 applied in full")
@@ -1009,6 +1053,107 @@ def test_a_document_that_really_changed_is_still_called_superseded(scoped, owner
     assert status["attestations"][0]["coverage"] == "superseded"
     assert len(status["stale_signatures"]) == 1
     assert status["unverifiable_signatures"] == []
+
+
+def test_the_sbom_slot_is_not_filled_by_other_evidence(scoped, owner):
+    """Issue #40. tf.8 is called "Software bill of materials" and completed on
+    *any* evidence linked to `annex_i.ii.1`.
+
+    An end-to-end run marked all 22 requirements verified with a generic
+    `test_result` against each, never called `record_sbom`, and got tf.8
+    complete with no CycloneDX or SPDX document anywhere on the product. The
+    file could then freeze with the named artefact absent, while Annex I Pt
+    II(1) asks for a bill of materials by name.
+
+    Checking the recorded *kind* is not the content-grading this module
+    refuses to do: the kind was declared by whoever attached the evidence.
+    """
+    _fill_file(scoped, owner)          # attaches a document to every slot
+    tf8 = next(
+        s for s in _call("assemble_technical_file", scoped, owner)["slots"]
+        if s["slot"] == "tf.8"
+    )
+    assert tf8["complete"] is False
+    assert tf8["evidence_ids"], "the other evidence is still recorded"
+    assert "none of kind 'sbom'" in tf8["missing"]
+    assert "record_sbom" in tf8["missing"]
+    # Named rather than described as nothing: saying "nothing attached" beside
+    # visible evidence reads as a bug and gets ignored.
+    assert "sbom" not in tf8["evidence_of_other_kinds"]
+
+
+def test_the_sbom_slot_completes_on_a_real_sbom(scoped, owner):
+    """The other side of #40 — the check must not make the slot unfillable."""
+    _fill_file(scoped, owner)
+    _call(
+        "record_sbom", scoped, owner,
+        sbom='{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}',
+        sbom_format="cyclonedx",
+        source_ref="git:abc123",
+    )
+    tf8 = next(
+        s for s in _call("assemble_technical_file", scoped, owner)["slots"]
+        if s["slot"] == "tf.8"
+    )
+    assert tf8["complete"] is True
+    assert "missing" not in tf8
+
+
+def test_an_edit_after_sign_off_is_noticed_without_re_freezing(scoped, owner):
+    """Issue #42, and the half #34 did not close.
+
+    #34 put the requirement narrative into the hashed payload, so editing an
+    implementation note moves the digest. That works. But
+    `state.technical_file_hash` is the *frozen* value, written only by
+    `finalize=true`, and coverage was computed by comparing two stored numbers
+    against each other. Edit a requirement without re-freezing and both are
+    unchanged, so the status read `coverage: current`,
+    `covers_current_version: true`, `stale_signatures: []` — on a product whose
+    compliance basis had just been rewritten.
+
+    The test above re-freezes before checking, which is why it passed
+    throughout. Nobody had to notice for it to be green, and noticing is the
+    part that matters at the release-control boundary.
+    """
+    _signable(scoped, owner)
+    _call("sign_off", scoped, owner, signer_name="A. Manager",
+          signer_role="CTO", statement="I attest.")
+    frozen = _call("get_conformity_status", scoped, owner)
+    assert frozen["attestations"][0]["coverage"] == "current"
+    assert frozen["technical_file"]["changed_since_frozen"] is False
+
+    # Change the compliance basis and deliberately do not re-freeze.
+    _call("update_requirement", scoped, owner, req_id=REQ,
+          implementation_note="Rewritten after signing, without re-freezing.")
+
+    status = _call("get_conformity_status", scoped, owner)
+    tf = status["technical_file"]
+    assert tf["changed_since_frozen"] is True
+    assert tf["current_content_hash"] != tf["content_hash"]
+    # The frozen hash is still reported, unchanged — the snapshot is a fact and
+    # is not rewritten because the product moved past it.
+    assert tf["content_hash"] == frozen["technical_file"]["content_hash"]
+    assert "Re-freeze" in tf["drift_note"]
+
+    # And the signature stops claiming to cover the current version, which is
+    # what the field name says it means.
+    att = status["attestations"][0]
+    assert att["covers_current_version"] is False
+    assert att["coverage"] == "superseded"
+    assert len(status["stale_signatures"]) == 1
+
+
+def test_drift_is_not_reported_on_a_file_that_was_never_frozen(scoped, owner):
+    """Nothing to drift from. `changed_since_frozen` must not read true just
+    because there is no frozen hash to match — that is the same shape as
+    reporting `open_candidates: 0` on a product nobody ever scanned."""
+    # `_fill_file` alone — `_signable` would freeze it, which is the case this
+    # test is not about.
+    _fill_file(scoped, owner)
+    tf = _call("get_conformity_status", scoped, owner)["technical_file"]
+    assert tf["finalized"] is False
+    assert tf["changed_since_frozen"] is False
+    assert "drift_note" not in tf
 
 
 # ---- the reply has to describe the record it just wrote ------------------------

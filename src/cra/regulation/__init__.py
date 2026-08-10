@@ -78,6 +78,15 @@ class TechnicalFileSlot:
     # checklist derived from it. Data rather than a hardcoded slot id so a
     # catalogue edit can move the requirement without a code change.
     requires_risk_assessment: bool = False
+    # Where the slot names a *specific* artefact rather than "documentation of
+    # X", the evidence has to be that artefact. tf.8 is called Software bill of
+    # materials, and completed on any evidence linked to `annex_i.ii.1` — a
+    # generic test result made it read complete with no SBOM anywhere.
+    #
+    # This is not content-grading, which this codebase deliberately does not
+    # do. The kind was declared by whoever recorded the evidence; checking it
+    # reads back their own statement rather than judging the bytes.
+    requires_evidence_kind: Optional[str] = None
     note: str = ""
 
 
@@ -186,6 +195,7 @@ def technical_file_slots() -> tuple[TechnicalFileSlot, ...]:
             auto_from_part=s.get("auto_from_part"),
             satisfied_by=s.get("satisfied_by"),
             requires_risk_assessment=bool(s.get("requires_risk_assessment", False)),
+            requires_evidence_kind=s.get("requires_evidence_kind"),
             note=(s.get("note") or "").strip(),
         )
         for s in _annex_vii()["technical_file"]["slots"]

@@ -225,7 +225,12 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
           the real moment was earlier.
         - `corrective_measure_available_at` — the moment a fix or mitigation
           became available to users. The final report's 14 days run from this,
-          so that deadline does not exist until you supply it.
+          so that deadline does not exist until you supply it. **It records
+          what happened, not what is planned**, and a date in the future is
+          refused for the same reason as a future `became_aware_at`: it would
+          mark a mitigation available when there is none, and start a statutory
+          clock from an event that has not occurred. Leave it unset until the
+          fix is actually out.
 
         Re-anchoring can put a deadline in the past. That is the honest
         outcome: tell the user plainly what is now overdue and that filing late
@@ -361,6 +366,7 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
     def set_submitter_profile(
         product_id: Optional[str] = None,
         legal_name: Optional[str] = None,
+        postal_address: Optional[str] = None,
         member_states_available: Optional[list[str]] = None,
         eu_login_registered: Optional[bool] = None,
         srp_registered: Optional[bool] = None,
@@ -371,8 +377,12 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
 
         `legal_name` is the registered name of the manufacturer or open-source
         steward — obligatory on every report, so without it nothing can be
-        filed. `member_states_available` takes ISO country codes and is what
-        routes a report to the right national CSIRT.
+        filed. `postal_address` is the other half of Annex V(2), which asks for
+        name **and** address: the EU Declaration of Conformity cannot complete
+        that field without it, and a name on its own leaves an expressly
+        required element out of a signed document. `member_states_available`
+        takes ISO country codes and is what routes a report to the right
+        national CSIRT.
 
         Only the arguments you pass are changed; the rest are left alone.
         """
@@ -382,6 +392,7 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
             actor_id,
             {
                 "legal_name": legal_name,
+                "postal_address": postal_address,
                 "member_states_available": member_states_available,
                 "eu_login_registered": eu_login_registered,
                 "srp_registered": srp_registered,

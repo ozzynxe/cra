@@ -355,6 +355,16 @@ class SubmitterProfile(_Base):
     """
 
     legal_name: str = ""
+    # Annex V(2) is "Name **and address** of the manufacturer or authorised
+    # representative", and there was nowhere to put the second half. The
+    # declaration filled the field from `legal_name` alone, so V(2) could never
+    # be complete and was never reported incomplete — a mandatory element
+    # silently omitted from a signed artefact.
+    #
+    # Free text, and one field rather than a structured address: Annex V does
+    # not prescribe a form, the declaration is read by people, and a schema
+    # with a `postcode` would start refusing addresses that do not have one.
+    postal_address: str = ""
     member_states_available: list[str] = Field(default_factory=list)
     eu_login_registered: Optional[bool] = None
     srp_registered: Optional[bool] = None

@@ -58,18 +58,36 @@ def _parse_ts(value: Optional[str], *, field: str) -> Optional[datetime]:
     return parse_ts(value, field=field, what="a statutory deadline")
 
 
-def _awareness_ts(value: Optional[str], *, now: datetime, field: str = "became_aware_at") -> Optional[datetime]:
-    """Parse an awareness timestamp, refusing one in the future.
+def _anchor_ts(value: Optional[str], *, now: datetime, field: str = "became_aware_at") -> Optional[datetime]:
+    """Parse a timestamp an Article 14 clock counts from, refusing a future one.
 
-    Awareness is the single most consequential timestamp in this system: every
-    Article 14 clock counts from it. It is also an unverifiable claim — the
-    tool cannot know when someone knew — so the only checks worth making are
-    the ones that catch an obviously wrong answer. A future date is one; it
-    would push a statutory deadline out.
+    There are two such anchors, and this guarded only the first for a long
+    time. Awareness is the more consequential — the 24-hour early warning and
+    the 72-hour notification both run from it — but **the final report's
+    fourteen days run from the corrective measure**, not from awareness, so a
+    date on that field schedules a statutory deadline just as firmly.
+
+    Both are unverifiable claims: the tool cannot know when someone knew, or
+    when a fix really shipped. So the only checks worth making are the ones
+    that catch an obviously wrong answer, and a date that has not happened yet
+    is one. It says an event occurred that has not, and counts from it.
+
+    The two fields fail in opposite directions, which is why neither can be
+    left out. A future awareness date pushes a deadline outwards. A future
+    corrective measure marks a mitigation available when none is — the error
+    that points the reassuring way.
     """
     dt = _parse_ts(value, field=field)
     if dt is not None and dt > now:
-        raise InvalidState(f"{field} is in the future")
+        raise InvalidState(
+            f"{field} is {dt.isoformat()}, which is in the future — it has not "
+            "happened yet. This field records when something did occur, and an "
+            "Article 14 clock "
+            "counts from it — dating it forward would schedule a statutory "
+            "deadline from an event that has not taken place. If you are "
+            "planning the date rather than recording it, leave the field unset "
+            "until it is true."
+        )
     return dt
 
 
@@ -264,7 +282,7 @@ def record_vulnerability(
         # The Article 14 anchor. Distinct from `discovered_at`: knowing a
         # vulnerability exists and knowing it is being exploited are different
         # moments, and only the second starts a clock.
-        aware = _awareness_ts(became_aware_at, now=now) or now
+        aware = _anchor_ts(became_aware_at, now=now) or now
         vuln = Vulnerability(
             product_id=product_id,
             identifier=identifier,
@@ -543,7 +561,7 @@ def update_vulnerability(
             raise NotFound(f"no vulnerability {vulnerability_id!r} on this product")
 
         now = _now()
-        aware = _awareness_ts(became_aware_at, now=now)
+        aware = _anchor_ts(became_aware_at, now=now)
         result: dict = {"ok": True, "vulnerability_id": vuln.id}
         changed: dict = {}
 
@@ -561,7 +579,10 @@ def update_vulnerability(
                 vuln.exploitation_determined_at = aware or now
             changed["actively_exploited"] = bool(actively_exploited)
 
-        cm = _parse_ts(corrective_measure_available_at, field="corrective_measure_available_at")
+        cm = _anchor_ts(
+            corrective_measure_available_at, now=now,
+            field="corrective_measure_available_at",
+        )
 
         audit.record(
             db,
@@ -638,9 +659,7 @@ def report_incident(
     with session_scope() as db:
         _require_member(db, product_id, actor_id)
         now = _now()
-        aware = _parse_ts(became_aware_at, field="became_aware_at") or now
-        if aware > now:
-            raise InvalidState("became_aware_at is in the future")
+        aware = _anchor_ts(became_aware_at, now=now) or now
 
         try:
             kind_enum = IncidentKind(kind)

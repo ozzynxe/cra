@@ -655,7 +655,13 @@ def set_support_period(
             )
 
         span = _years_between(anchor, end_at)
-        if not _meets_months(anchor, end_at, _FLOOR_YEARS * 12):
+        # Whether the 13(8) exception is actually being relied on. Not the same
+        # question as whether `expected_use_years` was supplied: passing it on a
+        # period that clears the floor is legitimate context, and reading the
+        # argument as the answer once put "Under five years" on a seven-year
+        # period. Only the floor test decides this.
+        short_of_floor = not _meets_months(anchor, end_at, _FLOOR_YEARS * 12)
+        if short_of_floor:
             if expected_use_years is None:
                 raise InvalidState(
                     f"that is a support period of {span:.1f} years. Article "
@@ -711,9 +717,9 @@ def set_support_period(
                 "previous": before,
             },
         )
-        return state, (span, inferred_from)
+        return state, (span, inferred_from, short_of_floor)
 
-    span, inferred_from = store_backend.mutate(product_id, _apply)
+    span, inferred_from, short_of_floor = store_backend.mutate(product_id, _apply)
 
     out = {
         "ok": True,
@@ -736,12 +742,22 @@ def set_support_period(
             "Article 13(8) runs the period from placing on the market. Pass "
             "start=... if that is not the right anchor."
         )
-    if expected_use_years is not None:
+    if short_of_floor:
         out["short_period_basis"] = (
             f"Under five years, on the stated basis that the product is "
             f"expected to be in use for {expected_use_years:g}. That claim is "
             "in the technical file and the audit trail; it is the thing an "
             "auditor will test, not the date."
+        )
+    elif expected_use_years is not None:
+        # Said rather than left silent: the caller passed the argument, and an
+        # agent that hears nothing back about it has no way to tell whether the
+        # exception was taken. This is the sentence that says it was not.
+        out["expected_use_recorded"] = (
+            f"Expected use of {expected_use_years:g} years is recorded as part "
+            f"of the reasoning. The period meets the five-year floor on its "
+            "own, so the Article 13(8) exception is not being relied on and "
+            "nothing here claims it."
         )
     if not published_url:
         out["also"] = (

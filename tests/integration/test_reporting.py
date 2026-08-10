@@ -174,7 +174,11 @@ def test_a_corrective_measure_date_schedules_the_final_report_without_disturbing
     )["vulnerability_id"]
     before = {o.stage: (o.id, o.due_at) for o in _obligations(product)}
 
-    fix = datetime(2026, 10, 2, 16, 30, tzinfo=UTC)
+    # Relative to now, and in the past. This was a fixed 2026-10-02, which was
+    # in the future for most of the life of the test and stopped being legal
+    # when #43 refused a corrective measure that has not happened yet. A date
+    # that rots into an invalid one is worse than one that reads less tidily.
+    fix = (_now() - timedelta(hours=6)).replace(microsecond=0)
     r = _call(
         "update_vulnerability",
         product,
@@ -249,6 +253,36 @@ def test_future_awareness_is_refused(product, owner):
     )
     assert r["ok"] is False
     assert "future" in r["error"]
+
+
+def test_a_future_corrective_measure_is_refused(product, owner):
+    """Issue #43. The final report's fourteen days run from the corrective
+    measure, not from awareness — it is the other statutory anchor, and it was
+    the unguarded one.
+
+    A future date here says a mitigation is available when none is, and
+    schedules a deadline from an event that has not happened. Unlike a future
+    awareness date, which pushes a deadline outwards, this error can only make
+    the position look better than it is.
+    """
+    vid = _call(
+        "record_vulnerability", product, owner, summary="rce", actively_exploited=True
+    )["vulnerability_id"]
+    r = _call(
+        "update_vulnerability",
+        product,
+        owner,
+        vulnerability_id=vid,
+        corrective_measure_available_at=(_now() + timedelta(days=2)).isoformat(),
+        status="remediated",
+    )
+    assert r["ok"] is False
+    assert "corrective_measure_available_at" in r["error"]
+    assert "has not happened yet" in r["error"]
+
+    # And nothing was written on the way to the refusal: no final-report clock,
+    # and the vulnerability is not sitting there marked remediated.
+    assert "final" not in {o.stage for o in _obligations(product)}
 
 
 def test_a_naive_timestamp_is_refused_with_an_actionable_message(product, owner):
@@ -424,3 +458,37 @@ def test_nothing_open_says_so_plainly(product, owner):
     r = _call("get_reporting_deadlines", product, owner)
     assert r["counts"]["open"] == 0
     assert r["attention"] == "Nothing open."
+
+
+def test_no_open_clocks_does_not_read_as_nothing_outstanding(product, owner):
+    """Issue #37. `open_obligations: []` with `open_count: 0` is true and
+    narrow — no Article 14 clock is running. But `deadlines` leads the status
+    payload by design, the key names carry no namespace, and an agent asked
+    "what is outstanding?" reads green fields and answers "nothing".
+
+    The unreadable case has had a careful non-claim since it was written; the
+    empty case had none. This is the product's founding failure mode with the
+    sign flipped — not an absence of knowledge reading as knowledge of absence,
+    but an absence of *clocks* reading as an absence of *obligations*.
+    """
+    st = _call("get_compliance_status", product, owner)
+    assert st["deadlines"]["open_count"] == 0
+
+    scope = st["deadlines"]["scope"]
+    assert "Article 14 reporting clocks only" in scope
+    assert "not a statement about whether anything else is outstanding" in scope
+    # And it does not stop at the disclaimer: the same response already knows
+    # what *is* outstanding, so it names it rather than leaving a second call
+    # to be guessed at.
+    assert "risk assessment" in scope
+    assert "assemble_technical_file()" in scope
+
+
+def test_the_scope_note_is_absent_while_a_clock_is_running(product, owner):
+    """The note answers a specific misreading of zero. With obligations open
+    there is no zero to misread, and a caveat on every response is a caveat
+    nobody finishes reading."""
+    _call("record_vulnerability", product, owner, summary="rce", actively_exploited=True)
+    st = _call("get_compliance_status", product, owner)
+    assert st["deadlines"]["open_count"] > 0
+    assert "scope" not in st["deadlines"]

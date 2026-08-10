@@ -124,10 +124,14 @@ technical_file:
         - the SBOM, where requested by a market surveillance authority
       auto_from:
         - annex_i.ii.1
+      requires_evidence_kind: sbom
       note: >-
         Annex VII lists this as produced on reasoned request rather than held
         as a matter of course. Recording it anyway costs nothing and the SBOM
-        is already required by Annex I Pt II(1).
+        is already required by Annex I Pt II(1). The slot names a specific
+        artefact, so evidence of kind `sbom` is what completes it — anything
+        else attached to Annex I Pt II(1) is recorded and does not fill this
+        section.
 
 declaration_of_conformity:
   anchor: Annex V

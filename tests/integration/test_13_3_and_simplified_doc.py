@@ -221,7 +221,8 @@ def _full_declaration(product, owner):
     """Everything the full declaration rests on, then the declaration itself."""
     _assess(product, owner)
     _confirm(product, owner)
-    _call("set_submitter_profile", product, owner, legal_name="Acme B.V.")
+    _call("set_submitter_profile", product, owner, legal_name="Acme B.V.",
+          postal_address="Keizersgracht 1, 1015 Amsterdam, Netherlands")
     for req in requirements():
         _call(
             "update_requirement",

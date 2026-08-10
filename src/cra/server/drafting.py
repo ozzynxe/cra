@@ -313,6 +313,7 @@ def set_submitter_profile(
     product_id: str,
     actor_id: str = "",
     legal_name: Optional[str] = None,
+    postal_address: Optional[str] = None,
     member_states_available: Optional[list[str]] = None,
     eu_login_registered: Optional[bool] = None,
     srp_registered: Optional[bool] = None,
@@ -332,6 +333,7 @@ def set_submitter_profile(
         changed: dict = {}
         for field, value in (
             ("legal_name", legal_name),
+            ("postal_address", postal_address),
             ("member_states_available", member_states_available),
             ("eu_login_registered", eu_login_registered),
             ("srp_registered", srp_registered),

@@ -16,6 +16,7 @@ from sqlalchemy import select
 from cra.agents import dispatch as _dispatch
 from cra.buildinfo import server_identity
 from cra.schemas import ComplianceState, EconomicOperatorRole, MemberInfo, Role
+from cra.schemas.enums import Applicability, RequirementStatus
 from cra.server import entitlements, store_backend
 from cra.server.errors import InvalidState, NotFound
 
@@ -220,6 +221,8 @@ def get_compliance_status(*, product_id: str, actor_id: str = "") -> dict:
     else:
         deadlines["open_obligations"] = open_obligations
         deadlines["open_count"] = len(open_obligations)
+        if not open_obligations:
+            deadlines["scope"] = _no_clocks_note(s, reqs)
 
     return {
         "ok": True,
@@ -254,6 +257,72 @@ def get_compliance_status(*, product_id: str, actor_id: str = "") -> dict:
         ],
         "disclaimer": _DISCLAIMER,
     }
+
+
+def _no_clocks_note(s, reqs) -> str:
+    """Say what an empty obligation list is about, and what it is not about.
+
+    `open_obligations: []` beside `open_count: 0` is true and narrow: no
+    Article 14 clock is running. But `deadlines` leads this response by design,
+    the key names carry no namespace, and an agent composing "what is
+    outstanding?" from green fields has every reason to answer "nothing" —
+    beside an unconfirmed assessment and two thirds of a checklist unstarted.
+
+    Same family as the `unavailable` note directly above, which exists because
+    an unreadable list must never render as nothing due. This is the other
+    half: an *empty* list must never render as nothing outstanding. The
+    difference is that the unreadable case is an absence of knowledge and this
+    one is knowledge of a narrow absence, which is the harder of the two to
+    write honestly — the zero is genuinely true, and that is exactly why it
+    travels so well.
+
+    The pointers are drawn from the same payload rather than recomputed. This
+    is not a gap report and must not read as one: `assemble_technical_file` is
+    the surface that answers completeness, and the note says so instead of
+    growing a second, drifting definition of settled.
+    """
+    note = (
+        "This counts Article 14 reporting clocks only — the 24-hour early "
+        "warning, the 72-hour notification, the 14-day final report. Zero "
+        "means no incident is currently being reported. It is not a statement "
+        "about whether anything else is outstanding."
+    )
+
+    also: list[str] = []
+    # `risk_assessment` is None until one is started — the `present: False`
+    # case in `_assessment_view`. Unstarted and started-but-unconfirmed are
+    # different sentences, and neither is a kind of the other.
+    ra = s.risk_assessment
+    if ra is None or not ra.risks:
+        also.append("no Article 13(2) risk assessment has been started")
+    elif not ra.confirmed_at:
+        also.append("the Article 13(2) risk assessment is not confirmed")
+    unsettled = sum(
+        1 for r in reqs
+        if r.applicability == Applicability.UNDETERMINED
+        or r.status in (RequirementStatus.NOT_STARTED, RequirementStatus.IN_PROGRESS)
+    )
+    if unsettled:
+        # Named for exactly what was measured. `_is_gap` — the technical file's
+        # test — also counts a requirement with no evidence, or evidence
+        # against a superseded release, so this number can only be lower than
+        # the real one. A count that can understate must say what it counted,
+        # or it becomes the reassuring figure in a note written to stop one.
+        also.append(
+            f"{unsettled} of {len(reqs)} Annex I requirements have no "
+            "applicability decision or are unfinished (applicability and "
+            "status only — the technical file also checks evidence)"
+        )
+    if not s.support_period.end:
+        also.append("no Article 13(8) support period is recorded")
+
+    if also:
+        note += (
+            " In this same response: " + "; ".join(also) + ". Read "
+            "assemble_technical_file() for what is actually complete — it is "
+            "the surface that answers that question."
+        )
+    return note
 
 
 def _support_period_view(s) -> dict:

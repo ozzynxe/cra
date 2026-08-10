@@ -117,6 +117,36 @@ def test_the_exception_cannot_be_claimed_with_a_number_over_five(product, owner)
     assert "does not apply" in out["error"]
 
 
+def test_a_long_period_is_not_described_as_claiming_the_exception(product, owner):
+    """Issue #41. `expected_use_years` on a period that clears the floor is
+    legitimate context, and the note used to be gated on the argument being
+    present rather than on the floor test — so a seven-year period came back
+    saying "Under five years, on the stated basis that the product is expected
+    to be in use for 7". Internally impossible, and it asserts that a statutory
+    exception was invoked when it was not.
+
+    The dates were right and the legal characterisation was wrong, which is the
+    harder half to notice: an agent relaying the response repeats the sentence,
+    and the sentence is the thing an auditor tests.
+    """
+    out = _set(product, owner, end="2033-01-01T00:00:00Z", expected_use_years=7)
+    assert out["ok"] is True
+    assert out["years"] >= 5.0
+    assert "short_period_basis" not in out
+    # And it does not simply go quiet, which would leave a caller who passed the
+    # argument unable to tell whether the exception had been taken.
+    assert "not being relied on" in out["expected_use_recorded"]
+    assert "7" in out["expected_use_recorded"]
+
+
+def test_the_exception_note_still_appears_when_it_is_actually_used(product, owner):
+    """The other side of #41 — the fix must not silence the real case."""
+    out = _set(product, owner, end="2029-01-01T00:00:00Z", expected_use_years=3)
+    assert out["ok"] is True
+    assert "Under five years" in out["short_period_basis"]
+    assert "expected_use_recorded" not in out
+
+
 def test_supporting_for_less_than_the_expected_use_is_refused(product, owner):
     """The direction the exception does not cover: 13(8) says the period
     *corresponds to* the expected use time, so a two-year period on a product

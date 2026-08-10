@@ -246,7 +246,9 @@ def test_the_corrective_measure_date_reaches_the_final_report(product, owner):
         summary="rce",
         actively_exploited=True,
     )
-    fix = datetime(2026, 10, 2, 16, 30, tzinfo=UTC)
+    # Relative and in the past, since #43 refuses a corrective measure that has
+    # not happened yet. A fixed date here would rot into an invalid one.
+    fix = (datetime.now(UTC) - timedelta(hours=6)).replace(microsecond=0)
     _call(
         "update_vulnerability",
         product,
@@ -256,7 +258,7 @@ def test_the_corrective_measure_date_reaches_the_final_report(product, owner):
         remediation_ref="https://acme.example/advisory/2026-01",
     )
     r = _call("draft_report", product, owner, incident_id=v["incident_id"], stage="final")
-    assert r["fields"]["v21"].startswith("2026-10-02")
+    assert r["fields"]["v21"].startswith(fix.date().isoformat())
     assert r["fields"]["v26"] == "https://acme.example/advisory/2026-01"
     assert "v21" not in {g["field_id"] for g in r["missing_required"]}
 

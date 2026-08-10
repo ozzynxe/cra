@@ -488,12 +488,42 @@ def _slot_view(
                 "contains a copy."
             )
     else:
-        view["complete"] = bool(evidence)
-        if not evidence:
-            view["missing"] = (
-                f"Nothing attached. Use attach_evidence(subject_ref="
-                f"'technical_file:{slot.id}', ...)."
-            )
+        # A slot that names a specific artefact is completed by that artefact,
+        # not by anything filed near it. tf.8 is "Software bill of materials"
+        # and used to complete on any evidence linked to `annex_i.ii.1`: a
+        # generic test result made the section read complete on a product where
+        # `record_sbom` had never been called and no CycloneDX or SPDX document
+        # existed. The file then froze with the named artefact absent.
+        #
+        # The kind is read back, not judged. Whoever attached the evidence
+        # declared it, so this checks their own statement rather than grading
+        # content, which this module deliberately does not do.
+        qualifying = evidence
+        if slot.requires_evidence_kind:
+            qualifying = [e for e in evidence if e.kind == slot.requires_evidence_kind]
+        view["complete"] = bool(qualifying)
+        if not qualifying:
+            if evidence:
+                # The distinction worth spelling out: something *is* recorded,
+                # and it is not this. Saying "nothing attached" beside visible
+                # evidence reads as a bug and gets ignored.
+                view["evidence_of_other_kinds"] = sorted({e.kind for e in evidence})
+                view["missing"] = (
+                    f"{len(evidence)} item(s) are recorded here, none of kind "
+                    f"'{slot.requires_evidence_kind}'. This section names a "
+                    "specific artefact and is not filled by other evidence "
+                    "attached alongside it."
+                    + (
+                        " Use record_sbom(format=..., document=...)."
+                        if slot.requires_evidence_kind == EvidenceKind.SBOM.value
+                        else ""
+                    )
+                )
+            else:
+                view["missing"] = (
+                    f"Nothing attached. Use attach_evidence(subject_ref="
+                    f"'technical_file:{slot.id}', ...)."
+                )
     return view
 
 
@@ -900,16 +930,44 @@ def generate_declaration_of_conformity(
 
     values: dict[str, str] = {}
     missing: list[dict] = []
+    # Fields that hold *some* of what the annex asks for. Kept beside `values`
+    # rather than in it, because a partly-filled mandatory field is missing —
+    # it just needs a different sentence from one nobody has touched.
+    partial: dict[str, dict] = {}
     for f in doc_fields():
         if f.source == "fixed":
             values[f.id] = f.text
         elif f.source == "product":
             values[f.id] = product_identification or state.name
         elif f.source == "submitter":
-            if state.submitter.legal_name:
-                values[f.id] = state.submitter.legal_name
-            else:
-                missing.append({"field": f.id, "anchor": f.anchor, "title": f.title})
+            # Annex V(2) is name *and* address. Filling it from `legal_name`
+            # alone made the field non-blank, and #28's mandatory-field check
+            # can only see blank — so the declaration signed with an expressly
+            # required element missing and `missing_fields: []` beside it.
+            #
+            # A mandatory field reported as satisfied by something that does
+            # not satisfy it is the sharpest form of what this product exists
+            # to prevent: not a gap reported as a gap, but a gap reported as
+            # settled.
+            name = (state.submitter.legal_name or "").strip()
+            address = (state.submitter.postal_address or "").strip()
+            if name and address:
+                values[f.id] = f"{name}\n{address}"
+            elif name:
+                # Left out of `values` so the derivation below counts it
+                # missing, with the reason recorded separately. "Not recorded"
+                # beside a recorded name reads as a bug and gets dismissed;
+                # "recorded, and half of it" is the true and actionable
+                # sentence.
+                partial[f.id] = {
+                    "have": name,
+                    "why": (
+                        "A legal name is recorded but no address. Annex V(2) "
+                        "requires both, so this field is incomplete rather "
+                        "than filled. "
+                        "set_submitter_profile(postal_address='...')."
+                    ),
+                }
         elif f.source == "technical_file":
             if standards_applied:
                 values[f.id] = standards_applied
@@ -938,7 +996,7 @@ def generate_declaration_of_conformity(
     # from `missing_fields`, so the tool's summary and its own document said
     # different things. Deriving makes them agree by construction.
     missing = [
-        {"field": f.id, "anchor": f.anchor, "title": f.title}
+        {"field": f.id, "anchor": f.anchor, "title": f.title, **partial.get(f.id, {})}
         for f in doc_fields()
         if not values.get(f.id)
     ]
@@ -1441,6 +1499,34 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
     state = _load(product_id)
     _member(state, actor_id)
 
+    # Derived, never stored — the same rule as `risk.staleness` and
+    # `evidence_currency`, and for the same reason: a stored drift flag needs
+    # something to flip it, and the something eventually does not run.
+    #
+    # `state.technical_file_hash` is the *frozen* value, written only by
+    # `finalize=true`. Comparing a signature against it answers "does this
+    # signature cover the snapshot" — which is not the question
+    # `covers_current_version` names, and the difference is invisible until
+    # somebody edits a requirement after signing. Then the file has moved, the
+    # two stored numbers still match each other, and the status reads fully
+    # signed. #34 made the digest move on such an edit; it did not make anyone
+    # look.
+    #
+    # So the current file is reassembled and *that* is what a technical-file
+    # signature is measured against. One extra assembly per status read, and
+    # only where something was frozen to drift from.
+    current_tf_hash = state.technical_file_hash
+    if state.technical_file_hash:
+        try:
+            current_tf_hash = assemble_technical_file(
+                product_id=product_id, actor_id=actor_id
+            )["content_hash"]
+        except (InvalidState, NotFound):
+            # Assembly refuses on a product no longer recorded in scope. Leave
+            # the frozen value in place rather than inventing a mismatch: an
+            # unanswerable question must not resolve to "it changed".
+            current_tf_hash = state.technical_file_hash
+
     with session_scope() as db:
         rows = list(
             db.execute(
@@ -1456,7 +1542,7 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
                 "bound_to_hash": a.subject_version_hash,
                 **_coverage(
                     a,
-                    state.technical_file_hash
+                    current_tf_hash
                     if a.subject_type == "technical_file"
                     else state.conformity_declaration_hash,
                 ),
@@ -1576,6 +1662,28 @@ def get_conformity_status(*, product_id: str, actor_id: str = "") -> dict:
                 state.technical_file_finalized_at.isoformat()
                 if state.technical_file_finalized_at
                 else None
+            ),
+            # Both numbers, so a reader can see which of the two questions each
+            # answers rather than inferring it from one.
+            "current_content_hash": current_tf_hash,
+            "changed_since_frozen": bool(
+                state.technical_file_hash
+                and current_tf_hash != state.technical_file_hash
+            ),
+            **(
+                {
+                    "drift_note": (
+                        "The file has changed since it was frozen, so the "
+                        "frozen version and any signature on it describe an "
+                        "earlier state of this product. Nothing is wrong with "
+                        "the signature — it covers what it covered. Re-freeze "
+                        "with assemble_technical_file(finalize=true) and "
+                        "re-sign to bind to what the product says now."
+                    )
+                }
+                if state.technical_file_hash
+                and current_tf_hash != state.technical_file_hash
+                else {}
             ),
         },
         "declaration_of_conformity": {

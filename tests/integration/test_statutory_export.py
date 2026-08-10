@@ -181,10 +181,13 @@ def test_flush_uploads_pending_rows_and_marks_them(product, owner, monkeypatch):
     import boto3
 
     monkeypatch.setattr(boto3, "client", lambda *a, **kw: _Client())
-    result = statutory_export.flush_pending()
+    result = statutory_export.flush_pending(product_id=product)
     assert result["exported"] >= 1
-    # flush_pending drains the whole backlog, and other tests leave rows in it,
-    # so find this product's object rather than assuming it is first.
+    # Scoped to this product, so everything uploaded here is ours. Unscoped,
+    # the assertion below depended on how much unrelated backlog the dev
+    # database was carrying against `flush_pending`'s limit — which is exactly
+    # the footgun `product_id` was added for, and it made this test fail once
+    # in a full run and pass on every rerun.
     mine = [k for k in put if k["Key"].startswith(f"product/{product}/")]
     assert mine, f"nothing uploaded for {product}"
     assert mine[0]["Bucket"] == "test-bucket"
@@ -209,7 +212,7 @@ def test_an_upload_failure_is_recorded_rather_than_swallowed(product, owner, mon
     import boto3
 
     monkeypatch.setattr(boto3, "client", lambda *a, **kw: _Client())
-    result = statutory_export.flush_pending()
+    result = statutory_export.flush_pending(product_id=product)
     assert result["failed"] >= 1
 
     rows = _exports(product, statutory_export.RELEASE)
@@ -233,9 +236,9 @@ def test_a_failed_export_is_retried_on_the_next_flush(product, owner, monkeypatc
     import boto3
 
     monkeypatch.setattr(boto3, "client", lambda *a, **kw: _Client())
-    statutory_export.flush_pending()
+    statutory_export.flush_pending(product_id=product)
     state["fail"] = False
-    statutory_export.flush_pending()
+    statutory_export.flush_pending(product_id=product)
 
     rows = _exports(product, statutory_export.RELEASE)
     assert rows[0].status == "exported"
@@ -266,3 +269,34 @@ def test_a_flush_can_be_scoped_to_one_product(product, owner, monkeypatch):
     assert put, "nothing uploaded"
     stray = [k for k in put if not k["Key"].startswith(f"product/{product}/")]
     assert stray == [], f"a scoped flush uploaded {len(stray)} other product(s)"
+
+
+def test_the_backlog_is_counted_the_same_way_everywhere(product, owner, monkeypatch):
+    """`pending_count()` and the count `flush_pending` reports must agree.
+
+    They did not. The working path retries `pending` and `failed` together and
+    `pending_count()` counts both, but the disabled branch counted only
+    `pending` — so a deployment with no archive configured was told its backlog
+    was smaller than it was, short by exactly the exports that had already
+    failed. Turning the bucket on later would then have surprised whoever read
+    the number.
+
+    Found from a test that failed once in a full suite and passed on every
+    rerun: the two counts differed only when something was sitting in `failed`.
+    """
+    monkeypatch.setenv("CRA_STATUTORY_BUCKET", "test-bucket")
+    _call("scan_advisories", product, owner)
+    _call("record_release", product, owner, version="1.0.0")
+
+    class _Broken:
+        def put_object(self, **kw):
+            raise RuntimeError("bucket unreachable")
+
+    import boto3
+
+    monkeypatch.setattr(boto3, "client", lambda *a, **kw: _Broken())
+    statutory_export.flush_pending(product_id=product)
+    assert _exports(product, statutory_export.RELEASE)[0].status == "failed"
+
+    monkeypatch.delenv("CRA_STATUTORY_BUCKET", raising=False)
+    assert statutory_export.flush_pending()["pending"] == statutory_export.pending_count()

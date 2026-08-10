@@ -229,8 +229,15 @@ def flush_pending(limit: int = 200, *, product_id: Optional[str] = None) -> dict
     """
     if not enabled():
         with session_scope() as db:
+            # `pending` and `failed` together, matching both the working path
+            # below — which retries failures — and `pending_count()`. Counting
+            # only `pending` here under-reported the backlog by exactly the rows
+            # that had already gone wrong, so a deployment turning its archive on
+            # later was told less was outstanding than there was.
             pending = db.execute(
-                select(StatutoryExport).where(StatutoryExport.status == "pending")
+                select(StatutoryExport).where(
+                    StatutoryExport.status.in_(("pending", "failed"))
+                )
             ).scalars().all()
             if pending:
                 log.warning(

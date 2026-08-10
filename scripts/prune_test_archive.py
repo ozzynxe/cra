@@ -58,9 +58,21 @@ def main() -> int:
     args = ap.parse_args()
 
     if not args.bucket:
-        sys.exit("no bucket: pass --bucket or set CRA_STATUTORY_BUCKET.")
+        sys.exit(
+            "no bucket. Either pass --bucket, or put CRA_STATUTORY_BUCKET in "
+            "deploy/deploy.env and `source` it — see deploy/deploy.env.example."
+        )
 
-    import boto3
+    try:
+        import boto3
+    except ModuleNotFoundError:
+        sys.exit(
+            "boto3 is not available to this interpreter. It is in the project "
+            "venv:\n"
+            "  .venv/bin/python scripts/prune_test_archive.py …\n"
+            "(Run from an operator workstation with AWS credentials — the "
+            "container cannot list or delete here, by design.)"
+        )
 
     s3 = boto3.client("s3", region_name=args.region)
     keys: list[str] = []

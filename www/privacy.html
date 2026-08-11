@@ -89,6 +89,16 @@ Database, backups and outbound email all stay in that region. AWS provides
 compute and storage, plus Amazon SES for notifications. No analytics or
 error-tracking service receives your data.</p>
 
+<p><strong>Payments go through Stripe</strong>, and only if you buy something.
+Stripe receives your email address and whatever you type into their checkout;
+it is their form, on their systems, and card details never reach this service
+&mdash; we could not store them if we wanted to. What comes back to us is an
+identifier for your subscription and which plan you are on. Nothing about your
+products, vulnerabilities or technical documentation is ever sent to Stripe.</p>
+
+<p>That is the complete list of people who touch your data: AWS, Stripe if you
+pay, and the advisory sources named below.</p>
+
 <h3 id="osv">One thing does leave, and only one</h3>
 <div class="card">
   <p>To warn you about vulnerabilities in components you ship, the service

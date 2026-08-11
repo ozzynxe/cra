@@ -91,6 +91,20 @@ def _anchor_ts(value: Optional[str], *, now: datetime, field: str = "became_awar
     return dt
 
 
+def _state_role(product_id: str):
+    """The product's economic operator role, or None if it cannot be read.
+
+    Best effort: this decorates a reporting response and must never be the
+    reason a deadline read fails. A missing role means no note, not an error.
+    """
+    try:
+        from cra.server import store_backend
+
+        return store_backend.get_backend().load_state(product_id).economic_operator_role
+    except Exception:  # noqa: BLE001 — a decoration must not break the read
+        return None
+
+
 def _overdue_now(views: list[dict]) -> list[dict]:
     return [v for v in views if v["state"] == ObligationState.OVERDUE.value]
 
@@ -777,6 +791,36 @@ def get_reporting_deadlines(
                 )
             ),
         }
+        # Whose clocks these are. Article 14 is titled "Reporting obligations of
+        # manufacturers", and Article 24(3) gives open-source stewards only
+        # 14(1) — and then only "to the extent that they are involved in the
+        # development" — plus 14(3) and (8) for severe incidents affecting
+        # systems they provide. Importers and distributors have stop-and-inform
+        # duties under Articles 19 and 20 instead of clocks.
+        #
+        # The schedule is handed to everyone regardless (#53), and it stays
+        # that way for now: narrowing a statutory clock on a role alone would
+        # be the lenient-direction error, and the 24(3) conditions are facts
+        # about a relationship that nothing here records. What changes is that
+        # the response stops implying the scope was checked.
+        if product_id:
+            role = getattr(
+                _state_role(product_id), "value", _state_role(product_id)
+            )
+            if role and role != "manufacturer":
+                out["whose_clocks"] = (
+                    "Article 14 is addressed to manufacturers, and this product "
+                    f"is recorded as {role}. The schedule below is shown in "
+                    "full because narrowing it on the role alone would risk "
+                    "hiding a deadline that does apply — Article 24(3) gives "
+                    "open-source stewards part of Article 14 where they are "
+                    "involved in development, and an importer or distributor "
+                    "who own-brands or substantially modifies is a manufacturer "
+                    "under Article 21. Nothing here has checked which of those "
+                    "is your case; work it out with your own advice rather than "
+                    "from this list."
+                )
+
         if not_covered:
             # Never let a filtered list read as a complete one. These products
             # may well have deadlines running; this tool simply is not tracking

@@ -492,3 +492,33 @@ def test_the_scope_note_is_absent_while_a_clock_is_running(product, owner):
     st = _call("get_compliance_status", product, owner)
     assert st["deadlines"]["open_count"] > 0
     assert "scope" not in st["deadlines"]
+
+
+def test_the_deadline_list_says_whose_clocks_these_are(product, owner):
+    """Issue #53, first step. Article 14 is titled "Reporting obligations of
+    manufacturers" and Article 24(3) gives stewards only part of it, yet the
+    full 24/72/14-day schedule is handed to every economic operator.
+
+    The schedule is deliberately *not* narrowed on the role: the 24(3)
+    conditions are facts about a relationship nothing here records, and
+    narrowing a statutory clock on a role alone is the lenient-direction error
+    — the one that ends in a missed deadline rather than a needless alarm. What
+    the response stops doing is implying the scope was checked.
+    """
+    _call("set_economic_operator_role", product, owner,
+          role="open_source_steward", rationale="We steward the upstream project.")
+    r = _call("get_reporting_deadlines", product, owner)
+    assert r["ok"] is True
+    assert "Article 14 is addressed to manufacturers" in r["whose_clocks"]
+    assert "open_source_steward" in r["whose_clocks"]
+    # It names both directions the answer could go, rather than implying one.
+    assert "Article 24(3)" in r["whose_clocks"]
+    assert "Article 21" in r["whose_clocks"]
+    assert "Nothing here has checked" in r["whose_clocks"]
+
+
+def test_a_manufacturer_gets_no_such_note(product, owner):
+    """The default and overwhelmingly common case. A caveat on every response
+    is a caveat nobody finishes reading."""
+    r = _call("get_reporting_deadlines", product, owner)
+    assert "whose_clocks" not in r

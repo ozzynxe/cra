@@ -19,7 +19,7 @@ regulation actually requires them.
 
 ### → Just want to use it? **[cra.skarp.app](https://cra.skarp.app)**
 
-Nothing to install. Add it to Claude or another MCP client as a connector:
+Nothing to install. Add it to Claude, Codex or another MCP client as a connector:
 
 ```
 https://cra.skarp.app/mcp/me/mcp
@@ -51,6 +51,26 @@ send a patch. Everything below is for that.
 The clocks start when the manufacturer becomes **aware** — which is why
 deadline tracking, rather than document drafting, is this tool's centre of
 gravity.
+
+**The reporting duty arrives fifteen months before the obligation that makes it
+survivable.** Article 71 applies the Regulation from 11 December 2027, "however,
+Article 14 shall apply from 11 September 2026" — so from this September a
+manufacturer owes a 24-hour notification, while Annex I Part II, which requires
+a vulnerability handling *process*, does not bind until the following December.
+Anyone who waits for the second date spends fifteen months answering statutory
+clocks with nothing behind them.
+
+Part II is the eight requirements the process has to satisfy — a bill of
+materials, remediation without delay, regular testing, public disclosure of
+fixed vulnerabilities, a coordinated disclosure policy, a contact address for
+reports, and secure, free distribution of updates. This tool *operates* the
+first two and records the rest against them: `record_sbom` and the nightly scan
+maintain the component picture, `record_vulnerability` → `update_vulnerability`
+carries a flaw to a corrective measure with its clocks attached, and
+`set_submitter_profile` holds the disclosure policy and contact address that
+II(5) and II(6) ask for. Publishing advisories for fixed vulnerabilities —
+II(4) — is not built yet and is tracked as an open issue rather than implied by
+the list above.
 
 ## Running it yourself
 
@@ -264,9 +284,7 @@ text of the law, and Article 7(4) delegated acts can amend the annexes.
 - **Severe incidents are not detectable** by any feed — no public source knows
   what is happening to your product in operation. The leverage there is
   `check_reporting_readiness` beforehand and fast capture during.
-- Some identifiers read oddly. This was forked from a sibling product by the
-  same author, and connector plumbing carried over unchanged;
-  The module docstrings say which and why.
+
 
 ## Development
 

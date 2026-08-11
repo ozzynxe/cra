@@ -122,30 +122,97 @@ rsync -az --delete $DRY_RUN \
 
 [ -n "$DRY_RUN" ] && { say "Dry run — stopping here."; exit 0; }
 
-# ---- 2. build and start ------------------------------------------------------
+# ---- 2. remember what is currently serving -----------------------------------
+#
+# The image id the running container was made from, so a failed smoke test has
+# something to go back to. Before this, `fail()` exited and left the broken
+# container running: a bad deploy took the service down and *kept* it down
+# until somebody noticed, which on a compliance tool means somebody mid-deadline
+# noticing for us.
+#
+# An image id, not a tag. Tags move when the next build reuses one; the id is
+# the thing that actually was serving. Empty on a first deploy, which is
+# handled — there is nothing to roll back to and the script says so.
+
+PREV_IMAGE=$($SSH "docker inspect --format '{{.Image}}' cra 2>/dev/null" || true)
+PREV_IMAGE=$(printf '%s' "$PREV_IMAGE" | tr -d '\r\n')
+[ -n "$PREV_IMAGE" ] && say "Current image: ${PREV_IMAGE#sha256:}" || \
+  printf '\033[33mNo container running — nothing to roll back to if this fails.\033[0m\n'
+
+rollback() {
+  printf '\033[31m%s\033[0m\n' "$*" >&2
+  if [ -z "$PREV_IMAGE" ]; then
+    printf '\033[31mNo previous image to restore. The service is down — investigate now.\033[0m\n' >&2
+    exit 1
+  fi
+  printf '\033[33mRolling back to %s\033[0m\n' "${PREV_IMAGE#sha256:}" >&2
+  # Re-point the tag compose builds to, then recreate **without building**.
+  #
+  # The first version of this tagged the old image as `cra-cra:rollback` and ran
+  # `docker compose up -d --force-recreate`, which would have recreated from
+  # `cra-cra` — the new, broken image — and reported success. A rollback that
+  # does not roll back is worse than none, because the failure is silent and it
+  # only ever runs when something is already wrong.
+  #
+  # `--no-build` is what makes the retag stick: without it compose rebuilds from
+  # source and puts the broken bits straight back.
+  $SSH "cd ${REMOTE} && docker tag ${PREV_IMAGE} cra-cra:latest && \
+        docker compose up -d --force-recreate --no-build cra" >&2 || true
+  code=$($SSH "docker exec cra python -c \"import httpx; print(httpx.get('http://127.0.0.1:8000/health', timeout=5).status_code)\"" 2>/dev/null || echo "dead")
+  if [ "$code" = "200" ]; then
+    printf '\033[33mRolled back and healthy. The deploy did NOT ship.\033[0m\n' >&2
+  else
+    printf '\033[31mRollback did not come up healthy (%s). The service is down — investigate now.\033[0m\n' "$code" >&2
+  fi
+  exit 1
+}
+
+# ---- 3. migrate, then swap ---------------------------------------------------
+#
+# Migrations run against the *old* container, before the new one serves. They
+# used to run after the swap, which left a window where new code met the old
+# schema — harmless for an additive column and not for anything else. Alembic
+# lives in the image, so the old container can always run a migration the new
+# code needs; the reverse ordering only worked because every migration so far
+# happened to be additive.
+
+if [ -n "$PREV_IMAGE" ]; then
+  say "Running migrations (before the swap)"
+  $SSH "docker exec cra alembic upgrade head" || \
+    fail "Migration failed. Nothing was swapped — the previous version is still serving."
+fi
+
+# ---- 4. build and start ------------------------------------------------------
 
 if [ "$BUILD" = "1" ]; then
   say "Rebuilding the container"
   # `up -d --build`, never `restart`: compose reads env_file at container
   # creation, so a restart silently keeps the old environment.
-  $SSH "cd ${REMOTE} && docker compose up -d --build cra"
+  $SSH "cd ${REMOTE} && docker compose up -d --build cra" || \
+    rollback "Build or start failed."
 else
-  $SSH "cd ${REMOTE} && docker compose up -d cra"
+  $SSH "cd ${REMOTE} && docker compose up -d cra" || rollback "Container start failed."
 fi
 
-# ---- 3. migrate --------------------------------------------------------------
-
-say "Running migrations"
-$SSH "docker exec cra alembic upgrade head"
+# First deploy only: nothing was serving, so the migration could not run above.
+if [ -z "$PREV_IMAGE" ]; then
+  say "Running migrations (first deploy)"
+  $SSH "docker exec cra alembic upgrade head" || fail "Migration failed on first deploy."
+fi
 
 say "Checking for schema drift"
 $SSH "docker exec cra alembic check" || \
   printf '\033[33mSchema drift detected — models and migrations disagree.\033[0m\n'
 
-# ---- 4. smoke ----------------------------------------------------------------
+# ---- 5. smoke ----------------------------------------------------------------
+#
+# Every failure below rolls back. The container answering /health is the
+# minimum; an unauthenticated MCP POST returning anything but 401 means the
+# auth middleware is not in the request path, which is worse than being down.
 
 say "Smoke test"
-$SSH "docker exec cra python -c \"import httpx; r=httpx.get('http://127.0.0.1:8000/health', timeout=5); r.raise_for_status(); print(' container /health:', r.text.strip())\""
+$SSH "docker exec cra python -c \"import httpx; r=httpx.get('http://127.0.0.1:8000/health', timeout=5); r.raise_for_status(); print(' container /health:', r.text.strip())\"" || \
+  rollback "The new container does not answer /health."
 
 if [ -n "$DOMAIN" ]; then
   code=$(curl -s -o /dev/null -w '%{http_code}' "https://${DOMAIN}/health" || true)
@@ -158,7 +225,7 @@ if [ -n "$DOMAIN" ]; then
     -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' \
     -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' || true)
   [ "$code" = "401" ] && echo " unauthenticated MCP: 401 (correct)" || \
-    fail "Unauthenticated MCP returned ${code}, expected 401. The mount is not gated — investigate before announcing this deploy."
+    rollback "Unauthenticated MCP returned ${code}, expected 401. The mount is not gated."
 fi
 
 say "Deployed."

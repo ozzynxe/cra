@@ -181,6 +181,46 @@ def pending_stages(kind: IncidentKind | str) -> list[StageRule]:
     ]
 
 
+# Article 71: "This Regulation shall apply from 11 December 2027. However,
+# Article 14 shall apply from 11 September 2026." So the reporting duty — and
+# only the reporting duty — commences on this date. Before it, nothing recorded
+# here is owed to anyone.
+#
+# The date lived in `handlers.py` as a countdown for the overview and was never
+# consulted by anything that decides. So a vulnerability recorded in August 2026
+# produced obligations "due" the same week, marked overdue, and a submission
+# recorded against them came back `submitted_late by 121.9 hours` — a lateness
+# finding about a regime that had not started. Found by an end-to-end run on
+# 2026-08-11, thirty days before commencement.
+REPORTING_APPLIES_FROM = datetime(2026, 9, 11, tzinfo=timezone.utc)
+
+
+def is_statutory(
+    due_at: datetime,
+    *,
+    became_aware_at: Optional[datetime] = None,
+    applies_from: Optional[datetime] = None,
+) -> bool:
+    """Whether Article 14 is actually in force for this obligation.
+
+    **Conservative on purpose, and the asymmetry is the whole design.** Telling
+    somebody a duty is live when it is not costs them an unnecessary
+    notification and some alarm. Telling somebody a duty is *not* live when it
+    is costs them a missed statutory deadline. Those are not comparable, so
+    this returns True unless the obligation sits entirely before commencement.
+
+    An awareness in early September with a deadline after the 11th is therefore
+    treated as statutory. That may be more than the Regulation strictly
+    requires; it is the direction to be wrong in.
+    """
+    start = applies_from or REPORTING_APPLIES_FROM
+    if due_at >= start:
+        return True
+    if became_aware_at is not None and became_aware_at >= start:
+        return True
+    return False
+
+
 def obligation_state(
     *,
     due_at: datetime,

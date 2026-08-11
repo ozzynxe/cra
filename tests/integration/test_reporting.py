@@ -522,3 +522,117 @@ def test_a_manufacturer_gets_no_such_note(product, owner):
     is a caveat nobody finishes reading."""
     r = _call("get_reporting_deadlines", product, owner)
     assert "whose_clocks" not in r
+
+
+# ---- run 0811: the two serious ones -------------------------------------------
+
+
+def test_a_deadline_before_commencement_is_not_called_statutory(product, owner):
+    """Article 71: the Regulation applies from 11 December 2027, "however,
+    Article 14 shall apply from 11 September 2026". Before that date nothing
+    recorded here is owed to anyone.
+
+    An end-to-end run on 2026-08-11 recorded an actively exploited
+    vulnerability, got obligations due the same week marked **overdue**, was
+    told "Reportable now", and had a submission recorded as `submitted_late by
+    121.9 hours` — a lateness finding about a regime that had not started.
+    `REPORTING_OBLIGATIONS_START` existed the whole time and was only ever
+    printed as a countdown.
+    """
+    aware = datetime(2026, 8, 5, 13, 40, tzinfo=UTC)
+    r = _call("record_vulnerability", product, owner, summary="rce",
+              actively_exploited=True, became_aware_at=aware.isoformat())
+    assert r["ok"] is True
+
+    for d in r["deadlines"]:
+        assert d["statutory"] is False, d["stage"]
+        assert "Article 14 applies from 11 September 2026" in d["not_yet_in_force"]
+        assert "not late in any sense that binds you" in d["not_yet_in_force"]
+
+    # The headline agrees with the rows beneath it.
+    assert "Not reportable yet" in r["urgent"]
+    assert "rehearsal" in r["urgent"]
+    # And it still says the useful thing, because the rehearsal has a point.
+    assert "cannot be arranged inside 24 hours" in r["urgent"]
+
+
+def test_a_deadline_after_commencement_is_statutory(product, owner):
+    """The other side, built directly rather than through the tool.
+
+    Awareness cannot be in the future — a separate guard, and a correct one —
+    so before 11 September 2026 *every* clock this service creates is
+    pre-commencement and the live path cannot produce the statutory case at
+    all. That is worth knowing on its own: for the next month the honest answer
+    to "is anything late?" is always no.
+    """
+    from cra.db import Incident, ReportingObligation
+    from cra.server.reporting import _obligation_view
+
+    with session_scope() as s:
+        inc = Incident(
+            product_id=product,
+            kind="actively_exploited_vuln",
+            became_aware_at=datetime(2026, 9, 20, 9, 0, tzinfo=UTC),
+            description="after commencement",
+        )
+        s.add(inc)
+        s.flush()
+        ob = ReportingObligation(
+            product_id=product, incident_id=inc.id, stage="early_warning",
+            due_at=datetime(2026, 9, 21, 9, 0, tzinfo=UTC),
+        )
+        s.add(ob)
+        s.flush()
+        view = _obligation_view(ob, datetime(2026, 9, 20, 12, 0, tzinfo=UTC))
+
+    assert view["statutory"] is True
+    assert "not_yet_in_force" not in view
+
+
+def test_is_statutory_errs_towards_the_duty_existing():
+    """The asymmetry, stated as a test. Saying a duty is live when it is not
+    costs an unnecessary notification. Saying it is not live when it is costs a
+    missed statutory deadline. Only one of those is recoverable."""
+    from cra.deadlines import is_statutory
+
+    before = datetime(2026, 8, 6, tzinfo=UTC)
+    after = datetime(2026, 9, 12, tzinfo=UTC)
+    assert is_statutory(before) is False
+    assert is_statutory(after) is True
+    # Straddling: awareness before commencement, deadline after it. Treated as
+    # live, which may be more than the Regulation requires and is the direction
+    # to be wrong in.
+    assert is_statutory(after, became_aware_at=before) is True
+
+
+def test_an_over_long_identifier_is_refused_by_name(product, owner):
+    """`identifier` and `source` are varchar(64). A sentence in either returned
+    a raw psycopg StringDataRightTruncation carrying the INSERT statement, the
+    schema column names and the caller's own bound parameters — information
+    exposure on top of an error nobody could act on."""
+    r = _call(
+        "record_vulnerability", product, owner, summary="a normal summary",
+        source="Reported to our security mailbox by an external researcher who "
+               "found it during a penetration test of a customer deployment",
+    )
+    assert r["ok"] is False
+    assert "source is" in r["error"] and "the limit is 64" in r["error"]
+    # It says what the field is for and where the long text belongs.
+    assert "short label" in r["error"]
+    assert "`summary`, which has no limit" in r["error"]
+    # And nothing about the database escapes.
+    for leak in ("INSERT INTO", "psycopg", "sqlalchemy", "vulnerabilities.id"):
+        assert leak.lower() not in r["error"].lower(), leak
+
+
+def test_a_storage_rejection_never_returns_the_query(product, owner):
+    """The backstop, for a constraint nothing validated in advance. The driver's
+    one-line message describes the limit; the statement and parameters stay in
+    the log."""
+    from cra.agents import dispatch as _d
+
+    r = _call("record_vulnerability", product, owner, summary="x",
+              identifier="CVE-" + "9" * 200)
+    assert r["ok"] is False
+    assert "INSERT" not in r["error"]
+    assert "identifier is" in r["error"]

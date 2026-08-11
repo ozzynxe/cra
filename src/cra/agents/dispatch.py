@@ -29,6 +29,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from cra.server import entitlements, request_context
 from cra.server.errors import TransitionError
 
@@ -265,6 +267,29 @@ def dispatch(
         # Bad tool arguments from the model — surface as data, not a crash.
         log.warning("bad args for %s: %s", name, e)
         return {"ok": False, "code": "invalid_args", "error": str(e)}
+    except SQLAlchemyError as e:
+        # `str()` on a SQLAlchemy error carries the full INSERT, every column
+        # name and every bound parameter. An end-to-end run put a
+        # sentence-length value into a varchar(64) and got back a stack trace
+        # containing the schema and the caller's own data — information
+        # exposure on top of an unactionable error.
+        #
+        # The driver's message alone is short and describes the constraint
+        # rather than the query ("value too long for type character
+        # varying(64)"), so it is the one part worth passing on. Everything
+        # else stays in the log.
+        log.exception("database error in tool %s", name)
+        detail = str(getattr(e, "orig", "") or "").strip().splitlines()
+        return {
+            "ok": False,
+            "code": "storage_rejected",
+            "error": (
+                (detail[0] if detail else "the database rejected this write")
+                + " — this is a limit on what can be stored, not a judgement "
+                "about the content. Shorten the value or split it across the "
+                "fields meant for longer text, and try again."
+            ),
+        }
     except Exception as e:  # noqa: BLE001 — the envelope is the contract
         log.exception("tool %s failed", name)
         return {"ok": False, "code": "internal_error", "error": str(e)}

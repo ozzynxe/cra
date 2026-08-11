@@ -34,7 +34,9 @@ from cra.db import (
 )
 from cra.deadlines import (
     OBLIGATION_SCHEDULE,
+    REPORTING_APPLIES_FROM,
     hours_remaining,
+    is_statutory,
     obligation_state,
     pending_stages,
     schedule_for,
@@ -196,7 +198,16 @@ def _obligation_view(o: ReportingObligation, now: datetime) -> dict:
         stage=o.stage,
         now=now,
     )
-    return {
+    # Whether Article 14 is in force for this one. The timer is real either way
+    # — it is arithmetic on an awareness date — but calling it *due*, *overdue*
+    # or *late* before 11 September 2026 asserts a legal position that does not
+    # exist yet.
+    # `due_at` alone settles it: every deadline here is awareness plus an
+    # interval, so a due date on or after commencement implies awareness could
+    # be either side of it, and a due date before commencement implies awareness
+    # was too. Checking the later of the two is the conservative test.
+    statutory = is_statutory(o.due_at)
+    out = {
         "obligation_id": o.id,
         "product_id": o.product_id,
         "incident_id": o.incident_id,
@@ -206,7 +217,21 @@ def _obligation_view(o: ReportingObligation, now: datetime) -> dict:
         "state": state.value,
         "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
         "submission_ref": o.submission_ref,
+        "statutory": statutory,
     }
+    if not statutory:
+        # Said on the obligation itself, not only in a summary line, because
+        # this is the field an agent quotes when asked whether anything is late.
+        out["not_yet_in_force"] = (
+            "Article 14 applies from 11 September 2026 (Article 71), and this "
+            f"deadline falls before it. The {o.stage.replace('_', ' ')} timer "
+            "above is real arithmetic on your awareness date and useful for "
+            "rehearsing the process, but nothing here is owed to a CSIRT or to "
+            "ENISA yet — so `state` describes a timer, not a legal position, "
+            "and a submission recorded against it is not late in any sense that "
+            "binds you."
+        )
+    return out
 
 
 def _require_member(db: Session, product_id: str, actor_id: str) -> None:
@@ -276,6 +301,30 @@ def unremediated_exploited(db: Session, product_id: str) -> list[Vulnerability]:
     )
 
 
+def _fits(value: Optional[str], *, field: str, limit: int, what: str) -> Optional[str]:
+    """Refuse an over-long value here, with the field named.
+
+    `Vulnerability.identifier` and `.source` are `varchar(64)` — short by
+    design, because one holds a CVE or GHSA id and the other a short label.
+    A caller who writes a sentence into either got a raw psycopg
+    `StringDataRightTruncation` back, complete with the INSERT and the bound
+    parameters, and no indication of which field was too long.
+
+    Checked before the write rather than translated after it: the caller needs
+    to know *which* field and *what it is for*, and a driver message can only
+    ever say that some varchar(64) somewhere overflowed.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    if len(value) <= limit:
+        return value
+    raise InvalidState(
+        f"{field} is {len(value)} characters and the limit is {limit}. It "
+        f"holds {what}. Put the longer text in `summary`, which has no limit."
+    )
+
+
 def record_vulnerability(
     *,
     product_id: str,
@@ -297,6 +346,15 @@ def record_vulnerability(
         # vulnerability exists and knowing it is being exploited are different
         # moments, and only the second starts a clock.
         aware = _anchor_ts(became_aware_at, now=now) or now
+        identifier = _fits(
+            identifier, field="identifier", limit=64,
+            what="a single advisory id such as CVE-2026-1234 or a GHSA name",
+        )
+        source = _fits(
+            source, field="source", limit=64,
+            what="a short label for where this came from, such as "
+                 "'security@ mailbox', 'OSV scan' or a researcher's name",
+        )
         vuln = Vulnerability(
             product_id=product_id,
             identifier=identifier,
@@ -424,6 +482,17 @@ def _cascade(
         "urgent": (
             "Reportable now. Early warning is due within 24 hours of becoming "
             "aware, via the CRA Single Reporting Platform to your CSIRT."
+            # `views` are the obligations just created; each carries the
+            # flag already, so the headline agrees with the rows under it.
+            if all(v["statutory"] for v in views)
+            else (
+                "Not reportable yet. Article 14 applies from 11 September 2026 "
+                "(Article 71), and these deadlines fall before it — so the "
+                "clocks below are a rehearsal of the process rather than duties "
+                "you owe. Worth running anyway: EU Login and SRP registration "
+                "cannot be arranged inside 24 hours, and this is the cheap time "
+                "to find that out."
+            )
         ),
     }
     note = _backdated_note(

@@ -384,6 +384,14 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         takes ISO country codes and is what routes a report to the right
         national CSIRT.
 
+        **`eu_login_registered` and `srp_registered` mean "we have done this",
+        not "we intend to".** Nothing here can check either — the readiness
+        report says so — so setting them true on "it's on someone's list"
+        produces a green readiness report resting on a plan. That is exactly
+        what an end-to-end run did, and the point of the check is to be told at
+        hour zero rather than hour three of a 24-hour clock. Ask whether
+        somebody has actually logged in.
+
         Only the arguments you pass are changed; the rest are left alone.
         """
         return dispatcher.dispatch(
@@ -522,7 +530,29 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         is also Annex I Pt II(2) evidence of vulnerability handling.
 
         Dismissing something CISA lists as exploited is a much stronger claim
-        again: make sure the note would hold up read after an incident.
+        again: make sure the note would hold up read after an incident. Those
+        dismissals are now named in the release record and in the frozen Annex
+        I Pt I(2)(a) determination, so the claim travels with the release
+        rather than disappearing into a zero.
+
+        **Nothing measures the note.** It is refused when empty and not
+        otherwise checked, so whether it is worth anything is decided here,
+        between you and the user, before the call. What makes a note hold up is
+        a product-specific fact:
+
+        - which version, which build, which configuration — "the JndiLookup
+          class is stripped from our shaded jar, verified in 1.4.0"
+        - not a conclusion — "we're not vulnerable" is the finding, not the
+          reason for it, and it is the exact phrase a run used to dismiss
+          twelve advisories including two Log4Shell entries
+        - if the user has not actually checked, the honest move is to leave the
+          candidate open. An open candidate blocks a release, which is the
+          system working; a dismissal that turns out to be wrong is a false
+          statement in a ten-year record
+
+        Ask what they checked. If the answer is "it's probably fine", say that
+        leaving it open costs them a release gate and dismissing it wrongly
+        costs them the determination.
         """
         return dispatcher.dispatch(
             "dismiss_advisory",
@@ -653,6 +683,20 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         formality — accepting a risk is what makes Annex I requirements
         applicable, and rejecting one is a statement that this threat does not
         apply to their product.
+
+        **A rationale that defers the decision is not a decision.** "I'll
+        review it later", "the agent drafted it, accept it for now", "we need
+        this for tomorrow's call" — these are all real things users say under
+        time pressure, and none of them is a reason the risk was decided the
+        way it was. Nothing here refuses them: the rationale is checked for
+        being non-empty and nothing else, so this is yours to hold.
+
+        What to do instead when the user is in a hurry: leave the risk
+        undecided. An undecided risk blocks `confirm_risk_assessment`, which
+        blocks the release gate, and every one of those refusals is
+        recoverable in a way a frozen assessment is not. `confirm_risk_assessment`
+        writes a hashed copy into evidence and Annex VII(3) cites it — you are
+        deciding what an authority reads in ten years, on a Tuesday afternoon.
         """
         return dispatcher.dispatch(
             "decide_risk",
@@ -749,8 +793,19 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         reads it afterwards. Ask the user what the product actually does. Where
         two categories arguably fit, take the higher one and say so.
 
+        **A user's assertion of the class is not a basis for recording one.**
+        "It's just an internal tool", "definitely default class" — that is
+        where the conversation starts, not where it ends. An end-to-end run
+        recorded a classification on exactly that and the rationale it wrote
+        was "the user says it is a boring internal tool and definitely default
+        class", which tells a later reader nothing about the product. Ask what
+        it does: does it manage identities, filter traffic, handle keys, run on
+        a network boundary? Then write the rationale from the answers.
+
         The result is indicative — it records a decision and spells out its
-        consequences; it is not a conformity determination.
+        consequences; it is not a conformity determination. But `in_scope` and
+        the class it carries are what seed the whole checklist, so getting it
+        from a guess makes everything downstream a guess with a citation on it.
         """
         return dispatcher.dispatch(
             "classify_product",
@@ -908,14 +963,38 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         `applicability` is `applicable`, `not_applicable` or `undetermined`.
         `status` is `not_started`, `in_progress`, `implemented` or `verified`.
 
-        **`not_applicable` requires a `justification`** and is refused without
-        one. An auditor reads the justification, not the flag, and a
-        requirement waved away with no reasoning is the most common finding in
-        a thin technical file. Write why it does not apply *to this product* —
-        "we don't do that" is not a justification.
+        **`not_applicable` is a legal determination, not a way to clear the
+        list.** It says this requirement does not bind this product — a claim
+        the manufacturer has to defend to a market surveillance authority, kept
+        for ten years. Use it when the requirement genuinely does not reach the
+        product, not when the work is outstanding. Work not yet done is
+        `undetermined` or `status='in_progress'`; both count as gaps, which is
+        the honest record and costs nothing.
+
+        Two of these are refused outright, because the annex offers no
+        discretion: Annex I Pt I(1) on any in-scope product, and the eight Part
+        II vulnerability-handling requirements where the operator role is
+        `manufacturer`. Pt I(2)(a)-(m) *are* rule-out-able — they sit under "on
+        the basis of the risk assessment ... and where applicable".
+
+        **The `justification` is the deliverable.** It is refused when empty,
+        and nothing here measures it beyond that — no length rule, no keyword
+        check. That is deliberate, and it makes you the only thing standing
+        between a weak reason and a ten-year record. Before you write one, ask
+        the user for the fact that makes it true, and write *that*:
+
+        - name the product property that takes it out of scope — "no network
+          interface", "no user accounts", "stores nothing at rest"
+        - not the category — "not applicable to this product type" says
+          nothing an auditor can check, and is the exact phrase an end-to-end
+          run used to rule out thirteen requirements at once
+        - if the user cannot give you the fact, that is a signal the answer is
+          `undetermined`, not a signal to write something plausible
 
         A requirement is not settled until it is implemented or verified *and*
-        has evidence attached; use `attach_evidence` for the artifact.
+        has evidence attached; use `attach_evidence` for the artifact. The
+        reply carries the requirement's own text and evidence hint — read them
+        back to the user when they are unsure whether it applies.
         """
         return dispatcher.dispatch(
             "update_requirement",

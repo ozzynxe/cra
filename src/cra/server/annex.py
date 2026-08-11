@@ -31,6 +31,7 @@ from cra.db import Evidence, ReportingObligation, Vulnerability, session_scope
 from cra.regulation import provenance, requirements
 from cra.schemas.enums import (
     Applicability,
+    EconomicOperatorRole,
     EvidenceKind,
     RequirementStatus,
     Role,
@@ -394,28 +395,59 @@ def update_requirement(
         # same move `update_user_information` makes for the eleven Annex II
         # items the annex does not qualify.
         #
-        # **Part I only.** The eight Part II points are unconditional too, but
-        # their chapeau is addressed to *manufacturers* — so a steward or an
-        # importer may legitimately rule one out, and refusing would need the
-        # Article 24 analysis this does not have. Marked in the catalogue,
-        # deliberately not enforced here.
+        # The two parts are unconditional for different reasons, and the
+        # difference decides who the refusal can reach.
+        #
+        # Part I(1) addresses the *product*: "Products with digital elements
+        # shall be designed, developed and produced in such a way that they
+        # ensure an appropriate level of cybersecurity based on the risks."
+        # Whoever is recording it, an in-scope product is subject to it.
+        #
+        # Part II addresses a *role*: "Manufacturers of products with digital
+        # elements shall:". So it is unconditional for a manufacturer and an
+        # open question for anyone else — Article 24 gives open-source stewards
+        # a lighter regime, and an importer or distributor is not the addressee
+        # at all. Refusing them would need an analysis this does not have, so
+        # the check is gated on the recorded role rather than skipped
+        # altogether: it fires only where the chapeau plainly names the caller.
         cat = _CATALOGUE.get(req_id)
-        if (
+        blocked = (
             item.applicability == Applicability.NOT_APPLICABLE
             and cat is not None
-            and cat.part == "part_i"
             and not cat.conditional
             and state.classification.in_scope is True
-        ):
+            and (
+                cat.part == "part_i"
+                or state.economic_operator_role == EconomicOperatorRole.MANUFACTURER
+            )
+        )
+        if blocked:
+            if cat.part == "part_i":
+                why = (
+                    "Annex I Pt I(2)(a)-(m) are qualified by their chapeau — "
+                    "\"on the basis of the cybersecurity risk assessment "
+                    "referred to in Article 13(2) and where applicable\" — and "
+                    f"{cat.anchor} sits above that sentence. It applies to "
+                    "every product with digital elements that is in scope."
+                )
+            else:
+                why = (
+                    f"{cat.anchor} sits under \"Manufacturers of products with "
+                    "digital elements shall:\" — no risk-assessment condition "
+                    "and no \"where applicable\". This product is recorded with "
+                    "economic_operator_role='manufacturer', so the eight Part "
+                    "II vulnerability-handling requirements all apply to you. "
+                    "(A different operator role is a different obligation set: "
+                    "Article 24 gives open-source stewards a lighter regime, "
+                    "and an importer or distributor is not the addressee here.)"
+                )
             raise InvalidState(
                 f"{req_id} cannot be marked not_applicable while this product "
-                "is recorded as in scope. Annex I Pt I(2)(a)-(m) are qualified "
-                "by their chapeau — \"on the basis of the cybersecurity risk "
-                "assessment referred to in Article 13(2) and where "
-                f"applicable\" — and {cat.anchor} sits above that sentence. It "
-                "applies to every product with digital elements that is in "
-                "scope, so there is no determination to record here. If the "
-                "product is out of scope, that is a classification decision: "
+                f"is recorded as in scope. {why} There is no determination to "
+                "record here — what there may be is work you have not done "
+                "yet, which is `undetermined` or `in_progress`, not "
+                "`not_applicable`. If the product is genuinely outside the "
+                "CRA, that is a classification decision: "
                 "classify_product(in_scope=false, rationale=...)."
             )
 

@@ -118,14 +118,17 @@ def _slot_coverage(product, owner):
 
 
 def test_recording_an_sbom_links_it_to_the_requirement(product, owner):
-    row, _ = _requirement(product, owner)
-    assert row["evidence_count"] == 0
+    # A delta, not an absolute. `make_releasable` now settles the
+    # unconditional requirements with evidence — Annex I Pt II(1) among
+    # them — so "starts at zero" stopped being true for a reason that has
+    # nothing to do with what this test is about.
+    before, _ = _requirement(product, owner)
 
     out = _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:abc1234")
     assert out["ok"] is True
 
     row, _ = _requirement(product, owner)
-    assert row["evidence_count"] == 1
+    assert row["evidence_count"] == before["evidence_count"] + 1
     assert out["evidence_id"] in row["evidence_ids"]
 
 
@@ -173,13 +176,18 @@ def test_the_checklist_and_the_technical_file_now_agree(product, owner):
 def test_re_recording_does_not_duplicate_the_link(product, owner):
     """SBOMs are re-recorded whenever the dependency set changes, which the
     tool's own note tells people to do."""
+    before, _ = _requirement(product, owner)
     first = _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:aaa")
     second = _call("record_sbom", product, owner, sbom=SBOM + " ", source_ref="git:bbb")
 
     row, _ = _requirement(product, owner)
-    assert row["evidence_count"] == 2
-    assert len(set(row["evidence_ids"])) == 2
-    assert {first["evidence_id"], second["evidence_id"]} == set(row["evidence_ids"])
+    assert row["evidence_count"] == before["evidence_count"] + 2
+    assert len(set(row["evidence_ids"])) == before["evidence_count"] + 2
+    # A subset: the fixture settles this requirement with its own evidence, so
+    # the link list is not only the two SBOMs. Both are present, both distinct,
+    # and the counts above are what prove nothing was duplicated.
+    assert {first["evidence_id"], second["evidence_id"]} <= set(row["evidence_ids"])
+    assert first["evidence_id"] != second["evidence_id"]
 
 
 # ---- the version it describes ------------------------------------------------------
@@ -293,6 +301,7 @@ def test_the_evidence_and_its_audit_row_commit_together(product, owner, monkeypa
     # something about the fixture instead of about the rollback.
     with session_scope() as s:
         before = s.query(Evidence).filter(Evidence.product_id == product).count()
+    before_link, _ = _requirement(product, owner)
 
     monkeypatch.setattr(audit_mod, "record", boom)
 
@@ -308,4 +317,6 @@ def test_the_evidence_and_its_audit_row_commit_together(product, owner, monkeypa
             == 0
         )
     row, _ = _requirement(product, owner)
-    assert row["evidence_count"] == 0
+    # The blob link is unchanged too — a baseline for the same reason the
+    # evidence count is one: the fixture settles this requirement.
+    assert row["evidence_count"] == before_link["evidence_count"]

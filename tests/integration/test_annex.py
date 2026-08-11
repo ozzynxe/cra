@@ -1396,3 +1396,81 @@ def test_an_out_of_scope_product_can_rule_out_anything(product, owner):
         justification="Out of scope; recorded for completeness.",
     )
     assert out["ok"] is True
+
+
+def test_a_manufacturer_cannot_rule_out_the_part_ii_requirements(scoped, owner):
+    """#47, second half. Part II's chapeau is "Manufacturers of products with
+    digital elements shall:" — no risk-assessment condition and no "where
+    applicable". For a manufacturer all eight apply.
+
+    Found by probing the first fix rather than by a run: after Part I was
+    closed, eight calls with `justification="n/a"` still ruled out the whole of
+    Part II on a product recorded as `manufacturer`, and nothing counted them
+    as gaps afterwards.
+    """
+    for i in range(1, 9):
+        out = _call(
+            "update_requirement", scoped, owner, req_id=f"annex_i.ii.{i}",
+            applicability="not_applicable",
+            justification="Handled by our platform provider.",
+        )
+        assert out["ok"] is False, f"annex_i.ii.{i} was ruled out"
+        assert "Manufacturers of products with digital elements shall" in out["error"]
+        assert "economic_operator_role='manufacturer'" in out["error"]
+
+    gaps = {g["req_id"] for g in _call("list_requirements", scoped, owner, filter="gaps")["requirements"]}
+    assert {f"annex_i.ii.{i}" for i in range(1, 9)} <= gaps
+
+
+def test_a_steward_may_still_rule_out_a_part_ii_requirement(product, owner):
+    """The gate is on the recorded role, not on the part, because Part II names
+    its addressee. Article 24 gives open-source stewards a lighter regime and an
+    importer is not the addressee at all — refusing them would need an analysis
+    this tool does not have, so it does not refuse them.
+    """
+    from cra.server import store_pg as _sp
+    st = _sp.load_state(product)
+    st.economic_operator_role = "open_source_steward"
+    _sp.save_state(st)
+
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="Steward of an upstream library.")
+    out = _call(
+        "update_requirement", product, owner, req_id="annex_i.ii.4",
+        applicability="not_applicable",
+        justification="Article 24: the steward regime does not carry this duty here.",
+    )
+    assert out["ok"] is True
+
+
+def test_part_i_1_is_refused_whatever_the_operator_role(product, owner):
+    """The asymmetry that makes the gate correct. Pt I(1) addresses the
+    *product* — "Products with digital elements shall be designed…" — so it does
+    not turn on who is recording it. Part II addresses a role."""
+    from cra.server import store_pg as _sp
+    st = _sp.load_state(product)
+    st.economic_operator_role = "importer"
+    _sp.save_state(st)
+
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="Imported product with digital elements.")
+    out = _call(
+        "update_requirement", product, owner, req_id="annex_i.i.1",
+        applicability="not_applicable",
+        justification="We only import it.",
+    )
+    assert out["ok"] is False
+    assert "every product with digital elements that is in scope" in out["error"]
+
+
+def test_the_refusal_names_undetermined_as_the_honest_state(scoped, owner):
+    """A refusal that only says no invites the caller to find another way to
+    the same place. Work not yet done is `undetermined` or `in_progress` — the
+    checklist already treats both as gaps, which is the honest record."""
+    out = _call(
+        "update_requirement", scoped, owner, req_id="annex_i.ii.3",
+        applicability="not_applicable", justification="Not started yet.",
+    )
+    assert out["ok"] is False
+    assert "work you have not done yet" in out["error"]
+    assert "`undetermined` or `in_progress`" in out["error"]

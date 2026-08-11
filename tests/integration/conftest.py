@@ -141,11 +141,14 @@ def _make_releasable(call, product_id: str, owner: str) -> None:
     # asserting something the regulation does not offer. Those are settled the
     # other way: applicable, verified, with evidence, which is what a real
     # product would have to do.
-    unconditional = {
-        r["req_id"]
-        for r in call("list_requirements", product_id, owner)["requirements"]
-        if r["req_id"] == "annex_i.i.1"
-    }
+    # Read from the catalogue rather than named here. This was
+    # `{"annex_i.i.1"}` for a few hours and went stale the moment the refusal
+    # widened to Part II for manufacturers — a hardcoded list in a fixture is
+    # the same failure as a hardcoded list in a sweep, and it fails as a
+    # confusing setup error rather than as the thing that changed.
+    from cra.regulation import requirements as _catalogue
+
+    unconditional = {r.id for r in _catalogue() if not r.conditional}
     for item in call("list_requirements", product_id, owner)["requirements"]:
         if item["req_id"] in unconditional:
             _ok(

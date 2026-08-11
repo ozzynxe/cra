@@ -70,6 +70,31 @@ which national CSIRT, starts the 24-hour, 72-hour and 14-day deadlines from when
 you became <em>aware</em> rather than when you typed it in, and drafts the ENISA
 report for you to file.</p>
 
+<h2>&ldquo;Isn't it safer not to scan?&rdquo;</h2>
+
+<p>The clocks run from awareness, so not looking can seem like the careful
+option. It is not, for three reasons.</p>
+
+<p><strong>Not looking is its own breach.</strong> Article 13(5) says
+manufacturers <em>&ldquo;shall exercise due diligence when integrating
+components sourced from third parties&rdquo;</em>, open-source ones included,
+and Annex I Part II(1) requires you to identify and document your vulnerabilities
+and components. The regulation does not merely allow looking. It requires it.</p>
+
+<p><strong>A scan does not make you aware in the legal sense.</strong> Article 14
+is about an actively exploited vulnerability <em>contained in the product</em>.
+A feed match is not that — version ranges over-match, vendored patches are
+invisible to them, and the affected code may never run in your build. It is a
+question about whether you are affected, and only a person can answer it. That
+is why a scan here produces candidates and stops: the clock starts when you
+decide, not when a feed matches.</p>
+
+<p><strong>You will find out anyway, later.</strong> A researcher emails you, a
+customer forwards a bulletin, an upstream maintainer publishes. The 24-hour
+clock starts then regardless — you simply have less of it left, and nothing on
+record showing when you learned. Ruling a candidate out with a documented reason
+is evidence of diligence; never having looked is not a defence.</p>
+
 <h2>What it will not do</h2>
 
 <p>It records the determinations you make and shows you what is missing. It does

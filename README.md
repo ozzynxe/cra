@@ -190,6 +190,37 @@ result; components with no version or an unsupported ecosystem are counted and
 named; and absence from CISA KEV is never rendered as "not exploited", because
 KEV is high-precision and lags real exploitation.
 
+#### "So is it safer not to scan?"
+
+It is the obvious question — Article 14's clocks run from awareness, and
+scanning produces awareness, so wilful blindness looks like a strategy. It is
+not, on three separate grounds.
+
+**Not looking is itself a breach.** Article 13(5): "manufacturers **shall
+exercise due diligence** when integrating components sourced from third parties
+so that those components do not compromise the cybersecurity of the product,
+including when integrating components of free and open-source software". Annex I
+Pt II(1) requires you to "identify and document vulnerabilities and components",
+including a bill of materials. The Regulation does not merely permit looking; it
+requires it. Not scanning trades one obligation for another and keeps both.
+
+**A scan does not make you aware in Article 14's sense.** The duty is to notify
+"any actively exploited vulnerability **contained in the product** with digital
+elements that it becomes aware of". A feed match is not that: version ranges
+over-match, vendored patches are invisible to them, and the affected code may
+not be reachable in your build. It is a question about whether you are affected,
+and the answer is a determination only a person can make. That is the whole
+reason a scan writes candidates and stops — the design is not squeamishness
+about clocks, it is that a match and an awareness are different things.
+
+**And you will find out anyway, later and worse.** A researcher emails you, a
+customer forwards a CISA bulletin, an upstream maintainer publishes. Awareness
+arrives on somebody else's schedule, the 24-hour clock starts then regardless,
+and you have no contemporaneous record of when you learned. The manufacturer who
+scanned and ruled a candidate out with a VEX justification has evidence of
+diligence dated before the incident; the one who never looked has no answer to
+"when did you know?".
+
 ### A prediction orders the queue and decides nothing
 
 EPSS scores how likely a CVE is to be exploited in the next 30 days — close

@@ -32,7 +32,7 @@ conspicuously marked **"Not a Contribution."**
 
 **"The Project"** means the software published at
 `github.com/ozzynxe/cra` and distributed as `cra-mcp`, and its maintainer,
-Skarp.
+**Linclaw Consulting AB**, which publishes it under the Skarp name.
 
 ## 2. Grant of copyright licence
 

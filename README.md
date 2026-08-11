@@ -380,7 +380,10 @@ boundary is treated as the most severe class.
 
 ## Licence
 
-[GNU Affero General Public License v3.0 only](LICENSE).
+Copyright &copy; 2026 **Linclaw Consulting AB**, published under the Skarp name.
+
+[GNU Affero General Public License v3.0 only](LICENSE). Version 3 only — there
+is no "or any later version" option, and `pyproject.toml` says the same.
 
 If you run a modified version of this as a network service, the AGPL requires
 you to offer its source to your users. That is the intended effect: self-host

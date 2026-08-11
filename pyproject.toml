@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "MCP server for EU Cyber Resilience Act (Regulation 2024/2847) compliance: scope classification, Annex I evidence, statutory reporting clocks, and the Annex VII technical file."
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [{ name = "Linclaw Consulting AB" }]
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 dependencies = [

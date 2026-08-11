@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy cra-assistant to the Lightsail host.
 #
-#   ./deploy/deploy.sh              # rsync, rebuild, migrate, smoke test
+#   ./deploy/deploy.sh              # rsync, build, migrate, swap, smoke test
 #   ./deploy/deploy.sh --no-build   # rsync + migrate only
 #   ./deploy/deploy.sh --dry-run    # show what would be sent, change nothing
 #
@@ -197,42 +197,56 @@ _health() {
   return 1
 }
 
-# ---- 3. migrate, then swap ---------------------------------------------------
+# ---- 3. build ----------------------------------------------------------------
 #
-# Migrations run against the *old* container, before the new one serves. They
-# used to run after the swap, which left a window where new code met the old
-# schema — harmless for an additive column and not for anything else. Alembic
-# lives in the image, so the old container can always run a migration the new
-# code needs; the reverse ordering only worked because every migration so far
-# happened to be additive.
-
-if [ -n "$PREV_IMAGE" ]; then
-  say "Running migrations (before the swap)"
-  $SSH "docker exec cra alembic upgrade head" || \
-    fail "Migration failed. Nothing was swapped — the previous version is still serving."
-fi
-
-# ---- 4. build and start ------------------------------------------------------
+# Build only. Starting is a separate step because the migration has to happen
+# between the two.
 
 if [ "$BUILD" = "1" ]; then
-  say "Rebuilding the container"
-  # `up -d --build`, never `restart`: compose reads env_file at container
-  # creation, so a restart silently keeps the old environment.
-  $SSH "cd ${REMOTE} && docker compose up -d --build cra" || \
-    rollback "Build or start failed."
-else
-  $SSH "cd ${REMOTE} && docker compose up -d cra" || rollback "Container start failed."
+  say "Building the new image"
+  $SSH "cd ${REMOTE} && docker compose build cra" || \
+    fail "Build failed. Nothing was swapped — the previous version is still serving."
 fi
 
-# First deploy only: nothing was serving, so the migration could not run above.
-if [ -z "$PREV_IMAGE" ]; then
-  say "Running migrations (first deploy)"
-  $SSH "docker exec cra alembic upgrade head" || fail "Migration failed on first deploy."
-fi
+# ---- 4. migrate, from the new image, before the swap -------------------------
+#
+# A **one-off container from the image just built**, not `docker exec` into the
+# running one. That was the arrangement here and it could not work: alembic the
+# *tool* is in the image, but `db_migrations/` is COPYed in at build time, so
+# the running container carries the migration set it was built with. Asking it
+# for `upgrade head` gets the previous release's head — which is to say,
+# nothing new — and the deploy then swapped new code onto the old schema.
+#
+# It survived because `alembic check` printed a yellow line and let the deploy
+# continue, and because every migration until 0015 was additive enough that new
+# code met an old schema without visibly breaking. 0015 changed two column
+# defaults and backfilled a column, and the deploy reported success having
+# applied none of it.
+#
+# `run --rm --no-deps` gets the new files with the old container still serving,
+# which is the property "migrate before swap" was always supposed to buy.
+say "Running migrations (from the new image, before the swap)"
+$SSH "cd ${REMOTE} && docker compose run --rm --no-deps cra alembic upgrade head" || \
+  fail "Migration failed. Nothing was swapped — the previous version is still serving."
 
+# ---- 5. swap -----------------------------------------------------------------
+
+say "Starting the new container"
+# `up -d`, never `restart`: compose reads env_file at container creation, so a
+# restart silently keeps the environment the old container was created with.
+# `--force-recreate` because an unchanged image plus a changed `.env` is exactly
+# the case `up -d` alone would skip.
+$SSH "cd ${REMOTE} && docker compose up -d --force-recreate --no-build cra" || \
+  rollback "Container start failed."
+
+# Rolls back rather than warning. This is the check that caught the bug above
+# and could not act on it: a yellow line in several hundred lines of build
+# output is a thing nobody reads, and what it detects — new code meeting a
+# schema that is not the one it was written against — is the failure the
+# ordering exists to prevent.
 say "Checking for schema drift"
 $SSH "docker exec cra alembic check" || \
-  printf '\033[33mSchema drift detected — models and migrations disagree.\033[0m\n'
+  rollback "Schema drift: models and migrations disagree, or a migration did not apply."
 
 # ---- 5. smoke ----------------------------------------------------------------
 #

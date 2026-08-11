@@ -31,7 +31,7 @@ pull request, an issue comment, or a patch by email — excluding communication
 conspicuously marked **"Not a Contribution."**
 
 **"The Project"** means the software published at
-`github.com/ozzynxe/cra-assistant` and distributed as `cra-mcp`, and its maintainer,
+`github.com/ozzynxe/cra` and distributed as `cra-mcp`, and its maintainer,
 Skarp.
 
 ## 2. Grant of copyright licence

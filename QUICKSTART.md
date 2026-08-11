@@ -6,7 +6,7 @@ tracking is the product, and it lives in rows.
 ## 0. Set up
 
 ```bash
-git clone https://github.com/ozzynxe/cra-assistant && cd cra-assistant
+git clone https://github.com/ozzynxe/cra && cd cra
 ./scripts/dev_up.sh
 ```
 

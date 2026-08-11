@@ -52,7 +52,7 @@ The MCP endpoint is `POST /mcp/me/mcp` with `Authorization: Bearer cra_…`, or
 
 ## What it does
 
-45 tools. Grouped by the obligation they serve:
+46 tools. Grouped by the obligation they serve:
 
 - **Scope** — `classify_product` against the Annex III/IV class lists,
   `get_applicable_csirt`, `record_sbom`, `set_support_period` with the Article

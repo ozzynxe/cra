@@ -636,3 +636,91 @@ def test_creating_a_product_says_when_it_assumed_the_role(owner):
     )
     assert stated["economic_operator_role"] == "importer"
     assert "role_assumed" not in stated
+
+
+# ---- deletion, up to the point of placing on the market -----------------------
+
+
+def _fresh(owner, name="Deletable"):
+    r = dispatcher.dispatch("create_product", "", owner, {"name": name})
+    return r["product_id"]
+
+
+def test_a_product_never_placed_on_the_market_can_be_deleted(owner):
+    """Nothing could be deleted at all, and `Lifecycle.WITHDRAWN` was
+    unreachable — so a free account's first product was permanent and someone
+    trying the tool spent their single allocation on a test they could never
+    clear.
+
+    Article 13(13) runs from placing on the market, so before that moment there
+    is no retention duty and nothing to keep.
+    """
+    pid = _fresh(owner)
+    _call("classify_product", pid, owner, product_class="default",
+          in_scope=True, rationale="Ordinary product.")
+
+    out = _call("delete_product", pid, owner, confirm_name="Deletable")
+    assert out["ok"] is True
+    assert out["deleted"] == pid
+    assert "never placed on the market" in out["note"]
+    # Says where a copy still is, rather than letting "deleted" mean something
+    # narrower than it sounds.
+    assert "90 days" in out["backups"]
+
+    assert _call("get_compliance_status", pid, owner)["ok"] is False
+    with session_scope() as s:
+        assert s.query(AuditEvent).filter(AuditEvent.product_id == pid).count() == 0
+
+
+def test_deleting_frees_the_plan_slot(owner, monkeypatch):
+    """The point of the whole thing. A free account is capped at one product,
+    so without this the first one is the only one anybody ever gets."""
+    from cra.server import entitlements
+    monkeypatch.setenv("CRA_ENTITLEMENTS_ENFORCED", "1")
+    monkeypatch.setattr(entitlements, "plan_for", lambda _uid: entitlements.FREE)
+
+    first = _fresh(owner, "First")
+    blocked = dispatcher.dispatch("create_product", "", owner, {"name": "Second"})
+    assert blocked["ok"] is False, "the cap should bite at one"
+
+    assert _call("delete_product", first, owner, confirm_name="First")["ok"] is True
+    made = dispatcher.dispatch("create_product", "", owner, {"name": "Second"})
+    assert made["ok"] is True
+
+
+def test_a_placed_product_cannot_be_deleted(owner, make_releasable):
+    pid = _fresh(owner, "Shipped")
+    _call("classify_product", pid, owner, product_class="default",
+          in_scope=True, rationale="Ordinary product.")
+    make_releasable(_call, pid, owner)
+    _call("record_sbom", pid, owner, sbom=SBOM, source_ref="git:a1", version="1.0.0")
+    _call("scan_advisories", pid, owner)
+    _call("record_build", pid, owner, version="1.0.0")
+    placed = _call("place_on_market", pid, owner, version="1.0.0",
+                   accepted_rationale="Fixture: shipping for the test.")
+    assert placed["ok"] is True
+
+    out = _call("delete_product", pid, owner, confirm_name="Shipped")
+    assert out["ok"] is False
+    assert "Article 13(13)" in out["error"]
+    assert "ten years" in out["error"]
+    # And it says the duty is theirs, not ours — deleting our copy would not
+    # discharge it.
+    assert "not this service" in out["error"]
+
+
+def test_the_name_has_to_be_typed(owner):
+    pid = _fresh(owner, "Careful")
+    out = _call("delete_product", pid, owner, confirm_name="careful")
+    assert out["ok"] is False
+    assert "does not match" in out["error"]
+    assert _call("get_compliance_status", pid, owner)["ok"] is True
+
+
+def test_only_the_owner_can_delete(owner):
+    pid = _fresh(owner, "Mine")
+    other = _user()
+    _call("add_member", pid, owner, user_id=other, role="maintainer")
+    out = _call("delete_product", pid, other, confirm_name="Mine")
+    assert out["ok"] is False
+    assert _call("get_compliance_status", pid, owner)["ok"] is True

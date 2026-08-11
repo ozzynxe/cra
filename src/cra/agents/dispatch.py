@@ -109,6 +109,10 @@ _FREE: set[str] = {
     # all, so it belongs with classification on the free side: finding
     # out that Annex I is not yours must not be behind a paywall.
     "set_economic_operator_role",
+    # Deleting a product that was never placed on the market is how a free
+    # account stops being stuck with its first one, so it cannot sit behind
+    # the paywall the trap would otherwise push people through.
+    "delete_product",
     "record_sbom",
     "add_member",
     "remove_member",

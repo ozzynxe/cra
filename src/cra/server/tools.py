@@ -152,6 +152,37 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
             },
         )
 
+    @mcp.tool(annotations=_annot("Delete product", _WRITE_LEGAL))
+    def delete_product(confirm_name: str, product_id: Optional[str] = None) -> dict:
+        """Delete a product that has never been placed on the market.
+
+        `confirm_name` must match the product's name exactly. Ask the user to
+        type it — do not fill it in from what you already know, because that is
+        the whole point of it.
+
+        **Available only before placing on the market.** Article 13(13) keeps
+        the technical documentation and the EU declaration at the disposal of
+        market surveillance authorities for at least ten years after that
+        moment, or the support period if longer. Before it there is no
+        retention duty; after it, deleting is refused — and deleting our copy
+        would not discharge the user's own duty anyway.
+
+        Also refused where anything has reached the statutory archive, which
+        normally means a technical file was frozen, a declaration drawn up, or
+        a sign-off recorded.
+
+        Everything goes: requirements, evidence, the risk assessment, advisory
+        candidates and scans, members, and the audit trail. Nightly
+        disaster-recovery snapshots keep a copy until they expire, within 90
+        days; the reply says so. There is no undo.
+        """
+        return dispatcher.dispatch(
+            "delete_product",
+            _pid(product_id),
+            actor_id,
+            {"confirm_name": confirm_name},
+        )
+
     # ---- vulnerabilities and the reporting clocks ----------------------------
 
     @mcp.tool(annotations=_annot("Record vulnerability", _WRITE_ADDITIVE))

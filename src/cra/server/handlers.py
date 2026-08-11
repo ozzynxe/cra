@@ -11,12 +11,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from cra.agents import dispatch as _dispatch
 from cra.buildinfo import server_identity
 from cra.schemas import ComplianceState, EconomicOperatorRole, MemberInfo, Role
-from cra.schemas.enums import Applicability, RequirementStatus
+from cra.schemas.enums import Applicability, Lifecycle, RequirementStatus
 from cra.server import entitlements, store_backend
 from cra.server.errors import InvalidState, NotFound
 
@@ -293,6 +293,121 @@ def get_compliance_status(*, product_id: str, actor_id: str = "") -> dict:
     }
 
 
+def delete_product(
+    *,
+    product_id: str,
+    actor_id: str = "",
+    confirm_name: str,
+) -> dict:
+    """Delete a product that was never placed on the market.
+
+    Until now nothing could be deleted at all, and `Lifecycle.WITHDRAWN` was
+    unreachable — so a free account's first product was permanent, and someone
+    trying the tool spent their single allocation on a test they could never
+    clear. That is a trap at the exact moment a new user is deciding whether
+    this is worth using.
+
+    **The line is placing on the market, and it is the regulation's own.**
+    Article 13(13) keeps the technical documentation and the EU declaration at
+    the disposal of authorities "for at least 10 years after the product with
+    digital elements has been placed on the market or for the support period,
+    whichever is longer". The clock starts at placing; a product in development
+    has no retention obligation at all. So before that moment there is nothing
+    to keep, and after it there is nothing we may delete.
+
+    Refused also where anything reached the statutory archive, which is a
+    separate and stronger reason: those objects are under Object Lock for ten
+    years and cannot be removed, so deleting the rows that point at them would
+    leave the archive holding artefacts nothing can explain. In practice the two
+    conditions coincide — every writer of that archive requires CONFORMITY, and
+    the accounts this exists for are on the free plan.
+
+    `confirm_name` must match the product name exactly. Not ceremony: this is
+    reached through an agent, and a typed name is a thing the user has to
+    supply rather than something a model can infer from context.
+    """
+    from cra.db import Attestation, AuditEvent, Product, StatutoryExport, session_scope
+    from cra.server.annex import placed_releases
+
+    # Through the shared helper, not an inline check. `test_membership_sweep`
+    # objected to the hand-rolled version and was right to: a second idiom for
+    # one invariant is what makes a missing check invisible, which is the
+    # reason three handlers were converged onto this helper earlier today.
+    # Owner only — deleting is not maintainer work.
+    from cra.server.scoping import _member
+
+    s = _load(product_id)
+    _member(s, actor_id, minimum=Role.OWNER)
+
+    # Checked after membership, so a non-member cannot learn a product's name by
+    # guessing at it, and before anything else, so a wrong name costs nothing.
+    if (confirm_name or "").strip() != s.name:
+        raise InvalidState(
+            f"confirm_name does not match. This product is named {s.name!r}, "
+            "and deleting it is not reversible — so the name has to be typed "
+            "rather than inferred. Ask the user for it."
+        )
+
+    placed = placed_releases(s)
+    if placed or s.lifecycle != Lifecycle.IN_DEVELOPMENT.value:
+        versions = ", ".join(r.version for r in placed) or s.lifecycle
+        raise InvalidState(
+            f"{s.name!r} has been placed on the market ({versions}) and cannot "
+            "be deleted. Article 13(13) keeps the technical documentation and "
+            "the EU declaration at the disposal of market surveillance "
+            "authorities for at least ten years from that moment, or the "
+            "support period if longer — and that duty is yours, not this "
+            "service's, so removing our copy would not discharge it. Deletion "
+            "is available up to the point of placing on the market and not "
+            "after it."
+        )
+
+    with session_scope() as db:
+        exported = db.execute(
+            select(StatutoryExport).where(StatutoryExport.product_id == product_id)
+        ).scalars().first()
+        if exported is not None:
+            raise InvalidState(
+                f"{s.name!r} has artefacts in the statutory archive, which is "
+                "Object Lock storage that cannot be deleted for ten years. "
+                "Removing the product would leave those objects with nothing "
+                "to explain them. This normally means a technical file was "
+                "frozen, a declaration drawn up, or a sign-off recorded."
+            )
+
+        # Explicitly, because neither carries a foreign key to `products` — the
+        # record of who decided what is built to outlive the product. That is
+        # the right default and the wrong one here: keeping an audit trail
+        # describing a product the owner has deleted is a trail nothing can be
+        # reconciled against, and Article 13(13) names the technical
+        # documentation and the declaration, not audit rows.
+        db.execute(delete(AuditEvent).where(AuditEvent.product_id == product_id))
+        db.execute(delete(Attestation).where(Attestation.product_id == product_id))
+        db.execute(delete(Product).where(Product.id == product_id))
+
+    return {
+        "ok": True,
+        "deleted": product_id,
+        "name": s.name,
+        "note": (
+            f"{s.name!r} is gone from this service, with its requirements, "
+            "evidence, risk assessment, advisory candidates, scans, members "
+            "and audit trail. It was never placed on the market, so no Article "
+            "13(13) retention duty had started and nothing of it reached the "
+            "statutory archive."
+        ),
+        # Said because it is true and because the alternative is a "deleted"
+        # that quietly means something narrower. The privacy page makes the
+        # same statement.
+        "backups": (
+            "Nightly disaster-recovery snapshots still contain it until they "
+            "expire, which is 90 days at most. Those are not readable by "
+            "anyone using this service and are not used to restore individual "
+            "records."
+        ),
+    }
+
+
 def _member_views(s) -> list[dict]:
     """Members with a readable label where one can be resolved.
 
@@ -467,3 +582,4 @@ _dispatch.register_read("cra_overview", cra_overview)
 _dispatch.register_read("list_products", list_products)
 _dispatch.register_read("get_compliance_status", get_compliance_status)
 _dispatch.register_mutating("create_product", create_product)
+_dispatch.register_mutating("delete_product", delete_product)

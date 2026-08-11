@@ -39,7 +39,7 @@ from typing import Optional
 
 from starlette.responses import HTMLResponse, Response
 
-def _csp(form_action: str = "'self'") -> str:
+def _csp(form_action: str = "'self'", *, analytics: bool = False) -> str:
     """The policy header, with `form-action` the only part any page varies.
 
     **`form-action` governs redirects, not just the POST target**, and that is
@@ -59,10 +59,22 @@ def _csp(form_action: str = "'self'") -> str:
     vulnerabilities and should not be able to post them anywhere — and only the
     billing pages widen it, to the two Stripe hosts they actually redirect to.
     """
+    # `script-src` is absent unless a page actually carries analytics, so the
+    # console — the surface that lists unreported exploited vulnerabilities —
+    # keeps a policy under which no script of any origin can run at all.
+    # Widening it globally would have been one line and would have spent that
+    # for the sake of three marketing pages.
+    #
+    # `'self'` on both, never plausible.io: Caddy proxies the vendor script and
+    # the event endpoint, so nothing here is cross-origin. If that proxy is ever
+    # removed, these pages stop reporting rather than quietly start talking to
+    # a third party.
+    script = "script-src 'self'; connect-src 'self'; " if analytics else ""
     return (
         "default-src 'none'; "
         "style-src 'self'; "
         "img-src 'self' data:; "
+        f"{script}"
         f"form-action {form_action}; "
         "frame-ancestors 'none'; "
         "base-uri 'none'"
@@ -81,13 +93,21 @@ _SHELL = """<!DOCTYPE html>
 <meta name="referrer" content="no-referrer">
 {robots}
 <link rel="stylesheet" href="/style.css">
-</head>
+{analytics}</head>
 <body{body_class}>
 {masthead}<main>
 {body}
 </main>
 {sitefoot}</body>
 </html>"""
+
+# Proxied by Caddy, both of them — see deploy/Caddyfile.snippet. Nothing here
+# points at plausible.io.
+_ANALYTICS = (
+    '<script defer src="/js/pa-ABgx6h03ec2oxLWaYBeb3.js"></script>\n'
+    '<script defer src="/js/pa-init.js"></script>\n'
+)
+
 
 _MASTHEAD = """<header class="masthead">
   <div class="wrap">
@@ -181,6 +201,12 @@ def page(
         title=_html.escape(title),
         description=_html.escape(description),
         robots="" if indexable else '<meta name="robots" content="noindex">',
+        # Keyed off `indexable`, deliberately, rather than a second flag. A
+        # page worth putting in a search index is a public marketing page; a
+        # page carrying `noindex` here is the console or the one-time token
+        # screen, and console URLs contain product ids that have no business
+        # leaving this host. Two flags could disagree; one cannot.
+        analytics=_ANALYTICS if indexable else "",
         body_class=f' class="{_html.escape(body_class)}"' if body_class else "",
         masthead=_MASTHEAD.format(
             home="/app" if signed_in_as else "/",
@@ -195,7 +221,7 @@ def page(
         html,
         status_code=status,
         headers={
-            "Content-Security-Policy": _csp(form_action),
+            "Content-Security-Policy": _csp(form_action, analytics=indexable),
             # A console page lists products and open vulnerabilities. Nothing
             # here should sit in a shared cache or a browser's back-forward
             # store after a sign-out.

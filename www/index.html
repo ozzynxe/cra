@@ -7,6 +7,8 @@
 <meta name="description" content="Get a product ready for the EU Cyber Resilience Act — free for one product until you place it on the market. Scope classification, the Article 13(2) risk assessment, Annex I evidence, daily SBOM scanning, the statutory reporting clocks and the Annex VII technical file, as an MCP server your coding agent connects to in one line.">
 <meta name="referrer" content="no-referrer">
 <link rel="stylesheet" href="/style.css">
+<script defer src="/js/pa-ABgx6h03ec2oxLWaYBeb3.js"></script>
+<script defer src="/js/pa-init.js"></script>
 </head>
 <body>
 <header class="masthead">
@@ -246,10 +248,11 @@
        iv. Getting started.
 
        The commands are `user-select: all`, so one click selects the whole
-       line ready for a clipboard shortcut. There is no copy button because
-       there is no JavaScript — the CSP served with every page is
-       `default-src 'none'`, and a button that did nothing would be worse
-       than no button.
+       line ready for a clipboard shortcut. There is still no copy button.
+       This page now loads one script — the cookieless visitor count — but
+       `script-src` is `'self'` with nothing inline, so a copy button would
+       cost either a second file or an `'unsafe-inline'` that is not worth
+       a convenience.
 
        The id stays `access`: every other page's "Start free" points here.
        ================================================================== -->
@@ -329,9 +332,10 @@
 </main>
 <footer class="sitefoot">
   <div class="wrap">
-    <p>Operated from the EU. This site sets no cookies, runs no analytics, and
-    loads nothing from another host. Skarp CRA is a working aid and cannot
-    certify conformity or replace a notified body.</p>
+    <p>Operated from the EU. No cookies, no cross-site tracking, and nothing
+    loaded from another host &mdash; visitor statistics are cookieless and
+    proxied through this domain. Skarp CRA is a working aid and cannot certify
+    conformity or replace a notified body.</p>
     <nav>
       <a href="/docs">Setup</a>
       <a href="/coverage">Coverage</a>

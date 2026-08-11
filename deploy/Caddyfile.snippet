@@ -42,6 +42,44 @@ cra.example.app {
 		path /health
 		path /version
 	}
+	# ---- Plausible, proxied ------------------------------------------------
+	#
+	# Both halves have to be here, and the second is the one that is easy to
+	# miss: the vendor script hard-codes `https://plausible.io/api/event` and
+	# does not derive the endpoint from its own `src`. Proxying only the script
+	# would leave every event going straight to plausible.io from the visitor's
+	# browser — the exact thing this exists to prevent, and it would look like
+	# it was working. `/js/pa-init.js` overrides `endpoint` to `/pa/event`.
+	#
+	# Why proxy at all: the footer and the privacy page both say nothing loads
+	# from another host, and a large share of this audience blocks `plausible.io`
+	# by hostname, so a direct embed would be both untrue and undercounted.
+	#
+	# These sit BEFORE `handle @api` on purpose. `/pa/*` is outside the @api
+	# matcher, but ordering is what guarantees it stays that way if the matcher
+	# is ever widened.
+
+	# The exact vendor filename, NOT `/js/pa-*.js`. That glob also matched
+	# `/js/pa-init.js` — our own endpoint override, served from disk — and
+	# rewrote it to the vendor script, so both tags loaded the same file and
+	# the override never ran. Every event would have gone to the vendor's
+	# domain with the proxy in place and apparently working. Found by
+	# checking the served byte count, not by reading the config.
+	handle /js/pa-ABgx6h03ec2oxLWaYBeb3.js {
+		reverse_proxy https://plausible.io {
+			header_up Host plausible.io
+		}
+	}
+	handle /pa/event {
+		rewrite * /api/event
+		reverse_proxy https://plausible.io {
+			header_up Host plausible.io
+			# X-Forwarded-For is passed by default, which is what lets
+			# Plausible derive its daily-rotating visitor hash; setting it
+			# explicitly only produces a reload warning.
+		}
+	}
+
 	handle @api {
 		# Long timeouts because MCP holds a streaming response open for the
 		# life of a session. The default would be no timeout at all, which is
@@ -71,7 +109,16 @@ cra.example.app {
 		# site-wide `style-src 'self'` would strip it — an unstyled consent
 		# screen asking for a credential is exactly the thing users are told to
 		# distrust.
-		header Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+		# `script-src 'self'` and `connect-src 'self'`, never plausible.io: the
+		# script and the event endpoint are both proxied above, so they are
+		# same-origin. If that proxy is ever removed, these pages stop counting
+		# visits rather than quietly begin talking to a third party — which is
+		# the failure direction worth having.
+		#
+		# Nothing inline, so no `'unsafe-inline'`. `webui.py` serves the same
+		# policy to the app-rendered public pages and omits `script-src`
+		# entirely everywhere else, so the console runs no script at all.
+		header Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self' data:; script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 	}
 	handle_errors {
 		respond "Not found" {err.status_code}

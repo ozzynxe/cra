@@ -6,6 +6,8 @@
 <title>Privacy — Skarp CRA</title>
 <meta name="referrer" content="no-referrer">
 <link rel="stylesheet" href="/style.css">
+<script defer src="/js/pa-ABgx6h03ec2oxLWaYBeb3.js"></script>
+<script defer src="/js/pa-init.js"></script>
 </head>
 <body>
 <header class="masthead">
@@ -24,7 +26,7 @@
 <div class="prose">
 
 <h1>Privacy</h1>
-<p class="updated">Last updated 9 August 2026</p>
+<p class="updated">Last updated 11 August 2026</p>
 
 <p>This service stores vulnerability and incident records, some of which
 describe flaws that have not yet been fixed or reported. That shapes everything
@@ -65,12 +67,32 @@ performed it, and which account is accountable. This trail is the product. It is
 what evidences that your technical documentation was maintained, so it is
 append-only and is not edited to look tidier after the fact.</p>
 
-<h3>What is not collected</h3>
-<p>This website sets no cookies, loads nothing from other hosts, and runs no
-analytics or tracking of any kind. There is no advertising, and nothing here is
-sold or shared for marketing. (That is about this site in your browser. The
-service itself makes one outbound request on your behalf — see
-<a href="#osv">where it is processed</a>.)</p>
+<h3>Visitor statistics</h3>
+<p>The public pages count visits using <strong>Plausible Analytics</strong>. It
+sets <strong>no cookies</strong>, stores no identifier on your device, and does
+not follow you to any other site. There is no advertising, and nothing here is
+sold or shared for marketing.</p>
+<p>Both the script and the events it sends are <strong>proxied through this
+domain</strong>, so your browser never connects to Plausible — which is why the
+footer can still say nothing loads from another host. What reaches Plausible
+from our server is the page you viewed, the referrer, your browser and device
+type, your country, and, so that repeat visits are not counted twice, your IP
+address. Plausible derives a hash from it with a salt that rotates every 24
+hours and does not store the address; once the salt rotates, a visit cannot be
+linked to an earlier one. Plausible Insights OÜ is an Estonian company and
+hosts this in the EU.</p>
+<p>Also recorded: that a form was submitted, that an outbound link was clicked,
+and that a file was downloaded. <strong>Never what you typed into a
+field</strong> — not the email address on the sign-in form, not anything
+else.</p>
+<p><strong>The signed-in console is excluded entirely.</strong> No page under
+<code>/app</code> carries this, because those URLs contain product identifiers
+and those have no business leaving this host. The policy header served with
+those pages permits no script to run at all, so it is enforced rather than
+merely intended.</p>
+<p class="muted">All of that is about this site in your browser. The service
+itself makes one outbound request on your behalf — see
+<a href="#osv">where it is processed</a>.</p>
 
 <h2>Why, and on what basis</h2>
 <ul>
@@ -78,6 +100,10 @@ service itself makes one outbound request on your behalf — see
   compliance records exist because you asked the tool to keep them.</li>
   <li><strong>To keep it secure</strong> — legitimate interests: rate limiting,
   bcrypt-hashed credentials, per-product access checks and the audit trail.</li>
+  <li><strong>To count visits to the public pages</strong> — legitimate
+  interests: knowing which pages get read, with no cookie, no device identifier
+  and no profile built about anyone. Nothing is stored on your device, so there
+  is nothing to consent to; any tracker blocker stops it.</li>
   <li><strong>To warn you about deadlines</strong> — performance of a contract.
   Email alerts go to the members of a product as its statutory deadlines
   approach. This is on by default, because a compliance tool that silently
@@ -97,8 +123,14 @@ it is their form, on their systems, and card details never reach this service
 identifier for your subscription and which plan you are on. Nothing about your
 products, vulnerabilities or technical documentation is ever sent to Stripe.</p>
 
+<p><strong>Plausible</strong> receives the visitor statistics described above
+from the public pages, in the EU. Nothing about your account, your products or
+your vulnerability records is ever sent to it, and the console does not carry
+it at all.</p>
+
 <p>That is the complete list of people who touch your data: AWS, Stripe if you
-pay, and the advisory sources named below.</p>
+pay, Plausible for visits to the public pages, and the advisory sources named
+below.</p>
 
 <h3 id="osv">One thing does leave, and only one</h3>
 <div class="card">
@@ -212,9 +244,10 @@ handled.</p>
 </main>
 <footer class="sitefoot">
   <div class="wrap">
-    <p>Operated from the EU. This site sets no cookies, runs no analytics, and
-    loads nothing from another host. Skarp CRA is a working aid and cannot
-    certify conformity or replace a notified body.</p>
+    <p>Operated from the EU. No cookies, no cross-site tracking, and nothing
+    loaded from another host &mdash; visitor statistics are cookieless and
+    proxied through this domain. Skarp CRA is a working aid and cannot certify
+    conformity or replace a notified body.</p>
     <nav>
       <a href="/">Home</a>
       <a href="/docs">Setup</a>

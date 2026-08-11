@@ -152,6 +152,41 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
             },
         )
 
+    @mcp.tool(annotations=_annot("Export product", _READ_LOCAL))
+    def export_product(
+        product_id: Optional[str] = None,
+        include_bodies: bool = False,
+    ) -> dict:
+        """Everything this service holds about the product, as one document.
+
+        The compliance state as stored, plus every evidence record,
+        vulnerability, incident, obligation, advisory candidate, scan,
+        attestation and audit row keyed to it. Not a rendering — the Annex VII
+        technical file is *derived* from this, and `assemble_technical_file`
+        produces that view separately.
+
+        Reach for it when the user asks what you hold, wants a copy for their
+        own records, or is deciding whether to commit real compliance data to a
+        service they have just met. It is free, and it always will be: getting
+        your own data out is not a feature to charge for.
+
+        **Evidence bodies are omitted by default** because they are stored by
+        value and can run to a hundred megabytes per product — a size that
+        belongs in a file rather than in this conversation. The hash, size,
+        filename and provenance of every artefact are still here, and the reply
+        says how many bytes it left out. For the complete archive, send the
+        user to `/app/p/<product_id>/export.json` in a browser.
+
+        Do not pass `include_bodies=true` unless you know the product is small
+        and the user has asked for the bytes specifically.
+        """
+        return dispatcher.dispatch(
+            "export_product",
+            _pid(product_id),
+            actor_id,
+            {"include_bodies": include_bodies},
+        )
+
     @mcp.tool(annotations=_annot("Delete product", _WRITE_LEGAL))
     def delete_product(confirm_name: str, product_id: Optional[str] = None) -> dict:
         """Delete a product that has never been placed on the market.

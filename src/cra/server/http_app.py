@@ -224,6 +224,10 @@ def build_app() -> Starlette:
         Route("/app/p/{product_id}", console.product, methods=["GET"]),
         Route("/app/p/{product_id}/requirements", console.requirements, methods=["GET"]),
         Route("/app/p/{product_id}/report", console.report, methods=["GET"]),
+        # Your data, as a file. The MCP tool omits evidence bodies because a
+        # tool result travels through the model's context; a browser download
+        # has no such limit, so this is where the complete archive lives.
+        Route("/app/p/{product_id}/export.json", console.export, methods=["GET"]),
         # No REST surface. The MCP wire below is the whole product, and the
         # console above is a read-only view onto it.
     ]

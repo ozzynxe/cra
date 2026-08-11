@@ -113,6 +113,9 @@ _FREE: set[str] = {
     # account stops being stuck with its first one, so it cannot sit behind
     # the paywall the trap would otherwise push people through.
     "delete_product",
+    # Getting your own data out is never gated. A paywall here would make
+    # every other promise in this product conditional on a subscription.
+    "export_product",
     "record_sbom",
     "add_member",
     "remove_member",

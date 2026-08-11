@@ -55,6 +55,8 @@ does rather than being a table of everything at one weight:
 from __future__ import annotations
 
 import logging
+import json
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -979,6 +981,46 @@ def report_article(
         + (f"<div><span>Catalogue</span><span>{esc(prov.get('caveat'))}</span></div>" if prov.get("caveat") else "")
         + "</div>"
         "</article>"
+    )
+
+
+async def export(request: Request) -> Response:
+    """The whole product as a JSON file.
+
+    A browser rather than the MCP wire, because evidence is stored by value and
+    a product may hold a hundred megabytes of it — a size that is a download
+    here and an incident in an agent's context. `include_bodies=True` is the
+    difference, and it is the reason this route exists at all.
+
+    Through `_call` like every other page: not one query in this module touches
+    `products` or the state blob, so the membership check lives in exactly one
+    place. A download route that read the database directly would be the second
+    path this console is written to avoid.
+    """
+    viewer = _viewer(request)
+    if viewer is None:
+        return _login_redirect(request)
+    pid = request.path_params["product_id"]
+
+    data = _call(viewer, "export_product", pid, include_bodies=True)
+    if not data.get("ok"):
+        return _not_found(viewer)
+
+    name = (data.get("state", {}).get("name") or "product").strip()
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-").lower() or "product"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return Response(
+        json.dumps(data, indent=2, sort_keys=True),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="cra-{slug}-{stamp}.json"'
+            ),
+            # Never cached: it is the whole record, and an intermediary holding
+            # a copy of somebody's unreported vulnerabilities is not a
+            # performance win.
+            "Cache-Control": "no-store",
+        },
     )
 
 

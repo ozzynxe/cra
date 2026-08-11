@@ -724,3 +724,71 @@ def test_only_the_owner_can_delete(owner):
     out = _call("delete_product", pid, other, confirm_name="Mine")
     assert out["ok"] is False
     assert _call("get_compliance_status", pid, owner)["ok"] is True
+
+
+# ---- export: your data is yours ----------------------------------------------
+
+
+def test_export_carries_the_state_and_every_row_keyed_to_it(product, owner):
+    """There was no way to get data out at all. For a tool asking people to
+    keep a ten-year compliance record in it, that makes "what if you disappear"
+    unanswerable at the moment someone is deciding whether to trust it."""
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="Ordinary product.")
+    _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:abc")
+    _call("record_vulnerability", product, owner, summary="probe finding")
+
+    out = _call("export_product", product, owner)
+    assert out["ok"] is True
+    assert out["format"] == "cra-mcp/product-export"
+    assert out["format_version"] == 1
+    # The blob as stored, not a rendering of it.
+    assert out["state"]["name"] == "Acme Gateway"
+    assert len(out["state"]["requirements"]) == 22
+    assert out["counts"]["evidence"] >= 1
+    assert out["counts"]["vulnerabilities"] == 1
+    assert out["counts"]["audit_events"] >= 3
+    for key in ("incidents", "reporting_obligations", "advisory_candidates",
+                "advisory_scans", "attestations", "statutory_exports"):
+        assert key in out, f"{key} missing from the export"
+
+
+def test_the_export_says_what_it_left_out(product, owner):
+    """A partial export that reads as a complete one is the failure the whole
+    thing exists to avoid — so the omission is a number, not an absence."""
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="Ordinary product.")
+    _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:abc")
+
+    out = _call("export_product", product, owner)
+    assert "inline_body" not in out["evidence"][0]
+    assert out["bodies_omitted"]["bytes"] == len(SBOM)
+    assert "/app/p/" in out["bodies_omitted"]["how_to_get_them"]
+    # The provenance of the artefact is still there — only the bytes are not.
+    assert out["evidence"][0]["sha256"]
+    assert out["evidence"][0]["source_ref"] == "git:abc"
+
+
+def test_asking_for_the_bodies_gets_them(product, owner):
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="Ordinary product.")
+    _call("record_sbom", product, owner, sbom=SBOM, source_ref="git:abc")
+
+    out = _call("export_product", product, owner, include_bodies=True)
+    assert "bodies_omitted" not in out
+    assert out["evidence"][0]["inline_body"] == SBOM
+
+
+def test_a_non_member_cannot_export(product, owner):
+    stranger = _user()
+    out = _call("export_product", product, stranger)
+    assert out["ok"] is False
+
+
+def test_export_is_free(owner, monkeypatch):
+    """Getting your own data out must never be behind the paywall — it would
+    make every other promise in the product conditional on a subscription."""
+    from cra.agents import dispatch
+    from cra.server import entitlements
+    assert "export_product" in dispatch._FREE
+    assert "export_product" not in dispatch._REQUIRES

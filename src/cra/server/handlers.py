@@ -567,6 +567,7 @@ def _count_by(items, attr: str) -> dict[str, int]:
 # imports only this module, so anything not reached from here is invisible to
 # the dispatcher.
 from cra.server import (  # noqa: E402,F401
+    export,
     advisories,
     annex,
     conformity,

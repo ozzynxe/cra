@@ -170,6 +170,7 @@ async def test_tools_round_trip_over_mcp(server):
                 "get_compliance_status",
                 "create_product",
                 "delete_product",
+                "export_product",
                 "record_vulnerability",
                 "update_vulnerability",
                 "report_incident",

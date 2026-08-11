@@ -37,7 +37,31 @@ UTC = timezone.utc
 
 # Every product-scoped page. The sweep below is parametrised over this, so a
 # new page that forgets the membership check fails the suite.
-PRODUCT_ROUTES = ("", "/requirements", "/report")
+def _product_routes() -> tuple[str, ...]:
+    """Every product-scoped console route, read from the app's own route table.
+
+    This was a hand-written tuple, which made the sweep below a spot-check
+    wearing a sweep's name — a new page inherited the membership check only if
+    somebody remembered to add it here. It did not survive its first test:
+    `/export.json` was added and returns the entire product, and the tuple did
+    not know about it.
+
+    Same fix as `test_membership_sweep` and the archive-writer sweep. A list
+    that has to be maintained by hand is exactly what the invariant cannot rest
+    on, because the route that breaks it will be the one nobody thought to add.
+    """
+    from cra.server.http_app import build_app
+
+    prefix = "/app/p/{product_id}"
+    out = []
+    for route in build_app().routes:
+        path = getattr(route, "path", "")
+        if path.startswith(prefix):
+            out.append(path[len(prefix):])
+    return tuple(sorted(out))
+
+
+PRODUCT_ROUTES = _product_routes()
 
 
 @pytest.fixture(autouse=True)
@@ -347,3 +371,36 @@ def test_login_will_not_redirect_off_site(client, outbox):
         follow_redirects=False,
     )
     assert done.headers["location"] == "/app"
+
+
+def test_the_export_download_is_a_file_with_the_bodies_in_it(client):
+    """The reason the route exists. The MCP tool omits evidence bodies because
+    a tool result travels through the model's context; a browser download has
+    no such limit, so this is where the complete archive lives."""
+    import json as _json
+
+    owner, _ = _user()
+    pid = _product(owner)
+    c = _signed_in(client, owner)
+
+    r = c.get(f"/app/p/{pid}/export.json", follow_redirects=False)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/json")
+    assert "attachment; filename=" in r.headers["content-disposition"]
+    assert ".json" in r.headers["content-disposition"]
+    # Never cached: it is the whole record, including unreported vulnerabilities.
+    assert r.headers["cache-control"] == "no-store"
+
+    body = _json.loads(r.text)
+    assert body["format"] == "cra-mcp/product-export"
+    assert body["product_id"] == pid
+    # The download is the complete one — no omission block.
+    assert "bodies_omitted" not in body
+
+
+def test_the_export_download_needs_a_session(client):
+    owner, _ = _user()
+    pid = _product(owner)
+    r = client.get(f"/app/p/{pid}/export.json", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/app/login" in r.headers["location"]

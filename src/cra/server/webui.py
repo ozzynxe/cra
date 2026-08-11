@@ -129,6 +129,11 @@ _PUBLIC_FOOTER = (
     '      <a href="/coverage">Coverage</a>\n'
     '      <a href="/terms.html">Terms</a>\n'
     '      <a href="/privacy.html">Privacy</a>\n'
+    # The only outbound link on any page here. A link is not a load, so the
+    # footer's "loads nothing from another host" still holds — and `<meta
+    # name="referrer" content="no-referrer">` is already set site-wide, so
+    # following it discloses nothing about where the reader came from.
+    '      <a href="https://github.com/ozzynxe/cra">Source</a>\n'
     '      <a href="mailto:cra@skarp.app">cra@skarp.app</a>'
 )
 

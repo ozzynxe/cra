@@ -13,6 +13,7 @@ does not exist. Every marker asserted below is one that survives printing.
 
 from __future__ import annotations
 
+import pathlib
 import re
 import subprocess
 import sys
@@ -219,12 +220,69 @@ def test_it_is_indexable_and_public():
     assert "Sign out" not in body
 
 
+# Every outbound link the published site is allowed to carry, and why. Exact
+# URLs rather than a host match, so adding one is a decision made here rather
+# than a side effect of editing a page.
+#
+# The EUR-Lex entry is older than this check and was never being watched — the
+# only page anything swept was the generated report. It is the regulation this
+# whole product is about, so pointing a reader at the authentic text is close
+# to the point; it is listed rather than pattern-matched because "anywhere on
+# europa.eu" is a wider promise than the one being made.
+LINKABLE = {
+    "https://github.com/ozzynxe/cra": "the source, linked from every footer",
+    "https://github.com/ozzynxe/cra/issues": "where /docs sends a wrong answer",
+    "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R2847":
+        "Regulation (EU) 2024/2847 itself, from /coverage",
+}
+
+
+def external_loads_and_links(body: str) -> tuple[list[str], set[str]]:
+    """Split outbound URLs into what the browser fetches and what a reader clicks.
+
+    The original check treated `src` and `href` as one thing, and that is the
+    distinction the footer's claim actually turns on. A `src`, or an `href` on
+    anything but an `<a>` — `<link rel=stylesheet>`, `<link rel=icon>` — is a
+    **load**: the browser fetches it without being asked, which is what "loads
+    nothing from another host" is a promise about. An `href` on an `<a>` is a
+    **navigation**, and only if the reader chooses it.
+
+    Lumping them together meant the site could not link to its own source
+    without appearing to break a privacy claim it was not breaking. Splitting
+    them keeps the real guarantee strictly: any external load fails, and an
+    external link has to be one that was named.
+    """
+    loads, links = [], set()
+    for tag, attrs in re.findall(r"<\s*([a-zA-Z][\w-]*)\b([^>]*)>", body):
+        for attr, url in re.findall(r'(src|href)\s*=\s*"(https?://[^"]+)"', attrs):
+            if "cra.skarp.app" in url:
+                continue
+            if tag.lower() == "a" and attr == "href":
+                links.add(url)
+            else:
+                loads.append(f"<{tag} {attr}={url}>")
+    return loads, links
+
+
 def test_it_loads_nothing_from_another_host():
     """The footer publishes this claim site-wide; a generated page is exactly
     where an external asset would sneak in unnoticed."""
-    body = sample_report.page().body.decode()
-    external = [
-        u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', body)
-        if "cra.skarp.app" not in u
-    ]
-    assert external == []
+    loads, links = external_loads_and_links(sample_report.page().body.decode())
+    assert loads == [], f"external load: {loads}"
+    assert links <= set(LINKABLE), f"unnamed outbound link: {links - set(LINKABLE)}"
+
+
+def test_every_published_page_makes_the_same_promise():
+    """The claim is in the footer of every page and was checked on one.
+
+    This page is generated, so it was the one thought most likely to grow an
+    external asset unnoticed — but the hand-written pages are edited far more
+    often, and nothing was watching them at all.
+    """
+    www = pathlib.Path(__file__).resolve().parents[2] / "www"
+    pages = sorted(www.glob("*.html"))
+    assert len(pages) >= 5, f"expected the published site, found {pages}"
+    for page in pages:
+        loads, links = external_loads_and_links(page.read_text())
+        assert loads == [], f"{page.name}: external load: {loads}"
+        assert links <= set(LINKABLE), f"{page.name}: unnamed outbound link: {links - set(LINKABLE)}"

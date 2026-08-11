@@ -84,8 +84,12 @@ def _account(email: str, tier: str, until: datetime | None, label: str) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--base", default="oniiranen@gmail.com",
-                    help="address to plus-address from")
+    # Required, not defaulted. This tree is published, and an operator's own
+    # address baked in as a default is personal data in a public repository —
+    # gratuitously, since the only caller passes it anyway and the usage line
+    # above has always shown a placeholder.
+    ap.add_argument("--base", required=True,
+                    help="address to plus-address from, e.g. you@example.com")
     ap.add_argument("--tag", default=datetime.now(UTC).strftime("%m%d%H%M"),
                     help="suffix making this run's accounts distinct")
     ap.add_argument("--paid-plan", default="team",

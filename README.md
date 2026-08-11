@@ -15,6 +15,32 @@ regulation actually requires them.
 > that a product is compliant, and it does not replace legal review or a
 > notified body where the product class requires one.
 
+---
+
+### → Just want to use it? **[cra.skarp.app](https://cra.skarp.app)**
+
+Nothing to install. Add it to Claude or another MCP client as a connector:
+
+```
+https://cra.skarp.app/mcp/me/mcp
+```
+
+You are asked for an email address and sent a six-digit code — no password, no
+token to copy. **[Setup and the first three things to ask
+it](https://cra.skarp.app/docs)** · [what each tool does, against the obligation
+it serves](https://cra.skarp.app/coverage) · [pricing](https://cra.skarp.app/pricing)
+
+One product is free, with unlimited colleagues, and free covers the part with a
+deadline: classification, the Article 13(2) assessment, the Annex I and Annex II
+checklists with evidence, daily SBOM scanning, the Article 14 reporting clocks
+and the Annex VII gap report. You can export everything you have recorded at any
+time, on any plan.
+
+**This repository is the source of that service** — read it, self-host it, or
+send a patch. Everything below is for that.
+
+---
+
 ## Why the dates matter
 
 | Date | What binds |
@@ -26,15 +52,10 @@ The clocks start when the manufacturer becomes **aware** — which is why
 deadline tracking, rather than document drafting, is this tool's centre of
 gravity.
 
-## Using it
+## Running it yourself
 
-**Hosted:** [cra.skarp.app](https://cra.skarp.app). Add it as an MCP connector
-and complete the emailed-code flow; there is a free tier that takes a product
-through classification, the Article 13(2) assessment and an Annex VII gap
-report. [What each tool does, against the obligation it
-serves](https://cra.skarp.app/coverage).
-
-**Self-hosted:**
+The hosted service is [cra.skarp.app](https://cra.skarp.app) — see the top of
+this file. To run your own:
 
 ```bash
 ./scripts/dev_up.sh                  # venv, Postgres, migrations
@@ -68,9 +89,14 @@ The MCP endpoint is `POST /mcp/me/mcp` with `Authorization: Bearer cra_…`, or
 - **Reporting** — `record_vulnerability` → `update_vulnerability` →
   `report_incident` → `get_reporting_deadlines` → `record_report_submission`,
   with `draft_report` rendering ENISA's own field layout
-- **Conformity** — `record_build` (free), `place_on_market`,
-  `assemble_technical_file`,
+- **Conformity** — `record_build` (free) records that a version exists;
+  `place_on_market` is the legal act that starts the Article 13(13) clock, and
+  the two are separate on purpose. Then `assemble_technical_file`,
   `generate_declaration_of_conformity`, `sign_off`
+- **Yours to take** — `export_product` returns everything held about a product,
+  and `delete_product` removes one that was never placed on the market. Both
+  free, and the first will stay that way: a paywall on getting your own data out
+  would make every other promise here conditional on a subscription
 
 The regulation itself is versioned data in
 [`src/cra/regulation/`](src/cra/regulation/) — Annex I Parts I and II, Annex
@@ -257,8 +283,8 @@ as a broken suite rather than a missing second variable. The default now
 follows `DATABASE_URL`, so the trap is gone rather than documented.
 `./scripts/dev_up.sh` prints the URL to export.
 
-The 561 skips without a database are the `_NEEDS_DB` pattern, not a broken
-setup.
+The skips without a database are the `_NEEDS_DB` pattern, not a broken setup —
+the count moves as tests are added, so it is not written down here.
 
 The module docstrings carry the invariants above in more detail, the reasoning
 behind them, and the things you can break silently. They are long on purpose:

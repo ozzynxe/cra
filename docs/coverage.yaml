@@ -359,7 +359,10 @@ sections:
           cooperate on measures to eliminate the risks posed.
         support: >-
           The technical file is the dossier such a request asks for, and the
-          evidence list enumerates what is held. There is no export package,
+          evidence list enumerates what is held, and `export_product` returns
+          everything about a product in one document &mdash; free, on every
+          plan, with the full archive downloadable from the console. What
+          there is no packaging for,
           and no record that a request was received, what was provided, and
           when.
         tools: [assemble_technical_file, list_evidence]

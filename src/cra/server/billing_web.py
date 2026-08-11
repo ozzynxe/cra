@@ -287,6 +287,65 @@ def _faq(question_answers) -> str:
     ) + "</div>"
 
 
+# The price is a statement about *when*, not about what this is worth. Said on
+# the page rather than only in a planning document, because a number with no
+# explanation invites the reader to supply their own — and "cheap" is the one
+# they reach for on a compliance tool.
+_EARLY_ACCESS_NOTE = """
+<div class="card">
+  <p><strong>This is an early-access price.</strong> The service is in active
+  development and will change. Subscribe now and this is what you pay for as
+  long as the subscription runs — the price rises for people who join later,
+  not for you.</p>
+  <p class="small muted">The Cyber Resilience Act's reporting duty starts on
+  11&nbsp;September&nbsp;2026; the rest applies from 11&nbsp;December&nbsp;2027.
+  Everything you need for the first date is on the free plan.</p>
+</div>
+"""
+
+# Scope, on the page that sells it rather than in a policy nobody opens. The
+# boundary is the product's own: this tool records the determinations you make
+# and shows what is missing — it does not make them. Support that answered
+# "which class am I?" would be doing by email what the API refuses to do, and
+# that refusal is most of what is being bought.
+_SUPPORT_SCOPE = """
+<div class="section-head"><h2>What support covers</h2></div>
+<div class="grid cols-2">
+  <div class="card">
+    <p class="eyebrow">We help with</p>
+    <ul>
+      <li>getting the connector attached, and why it will not attach</li>
+      <li>what a field is asking for and what the tool does with it</li>
+      <li>reading your gap report or technical file with you</li>
+      <li>why something was refused, and what would satisfy it</li>
+      <li>bugs — and anything the tool told you that turns out to be wrong,
+          which we want to hear about most</li>
+    </ul>
+  </div>
+  <div class="card">
+    <p class="eyebrow">We do not advise on your obligations</p>
+    <ul>
+      <li>which product class you are in, or whether you are in scope</li>
+      <li>whether a justification or risk decision is good enough</li>
+      <li>whether you need a notified body</li>
+      <li>whether a change is a substantial modification</li>
+      <li>whether a particular vulnerability must be reported</li>
+    </ul>
+    <p class="small muted">Not because the questions are unwelcome. Answering
+    them would make this the wrong thing: the tool records what you decide and
+    shows you the gaps, and a support inbox that quietly did the deciding would
+    be worse than one that says no — you would not know which answers to
+    check.</p>
+  </div>
+</div>
+<p class="small muted">One person, one inbox, European hours. Best effort,
+usually within two working days, slower in August. No phone, no chat, no
+guaranteed response time — at this price those would be promises we could not
+keep. If that is not enough for how you plan to use this, ask before you
+subscribe and we will tell you honestly.</p>
+"""
+
+
 async def pricing_page(request: Request) -> Response:
     rows = pricing.table() if billing.is_billing_configured() else []
 
@@ -307,11 +366,23 @@ async def pricing_page(request: Request) -> Response:
         )
         tail = ""
     else:
+        # One plan on sale since 2026-08-11, so no comparison grid and no
+        # cadence toggle — a toggle with one option is furniture. `cols-3` is
+        # kept off deliberately: a lone card in a three-column grid reads as
+        # two missing plans.
+        heading = (
+            "<p class='eyebrow rule-label'>Early access — "
+            + ("one plan" if len(rows) == 1 else "paid plans")
+            + "</p>"
+        )
+        toggle = "" if len(rows) == 1 and len(offered) < 2 else _cadence_toggle(rows, cadence)
+        grid = "grid cols-1" if len(rows) == 1 else "grid cols-3"
         paid = (
-            "<p class='eyebrow rule-label'>Paid plans — for placing a product "
-            "on the market</p>"
-            + _cadence_toggle(rows, cadence)
-            + f"<div class='grid cols-3'>{''.join(_plan_card(r, cadence) for r in rows)}</div>"
+            heading
+            + _EARLY_ACCESS_NOTE
+            + toggle
+            + f"<div class='{grid}'>{''.join(_plan_card(r, cadence) for r in rows)}</div>"
+            + _SUPPORT_SCOPE
         )
         tail = (
             "<div class='section-head'><h2>Questions</h2></div>"
@@ -380,8 +451,8 @@ async def pricing_page(request: Request) -> Response:
             "Skarp CRA pricing. The risk assessment, the Annex I and Annex II "
             "checklists with evidence, daily SBOM scanning and the Article 14 "
             "reporting clocks are free for one product, with unlimited members. "
-            "Paid plans freeze the technical file, the Declaration of "
-            "Conformity and releases."
+            "Early access adds five products, the Annex VII and Annex V "
+            "toolchain, and email support."
         ),
         indexable=True,
     )

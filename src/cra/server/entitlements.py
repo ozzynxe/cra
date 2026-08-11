@@ -97,6 +97,23 @@ class Plan:
 # on a page somebody is reading.
 _LADDER: tuple[Plan, ...] = (
     Plan("free", max_products=1, max_members=UNLIMITED, features=FREE_FEATURES),
+    # The one plan on sale. Named for what it is: the service is in active
+    # development and the price says so, rather than the price implying the
+    # product is finished.
+    #
+    # Five products because that is the difference from free that matters, and
+    # everything else because the paid half — freezing the file, the two
+    # declarations, sign-off, placing on the market, the support period — has
+    # almost no urgency before December 2027. Charging *on* those would be
+    # charging for the one capability nobody needs yet, so they ride along and
+    # what is actually bought is headroom and someone to ask.
+    Plan("early_access", max_products=5, max_members=UNLIMITED, features=ALL_FEATURES),
+    # Superseded 2026-08-11 and kept, not deleted. `billing._plan_from`
+    # validates `metadata.cra_plan` against this ladder, so removing a name
+    # would make an existing subscription carrying it unresolvable. They are
+    # off sale rather than gone: `sellable_plans()` reads the configured
+    # `STRIPE_PRICE_*` variables, and with none set for these three there is
+    # nothing to buy — no code change, and no migration.
     Plan("solo", max_products=1, max_members=UNLIMITED, features=ALL_FEATURES),
     Plan("team", max_products=3, max_members=UNLIMITED, features=ALL_FEATURES),
     Plan("portfolio", max_products=10, max_members=UNLIMITED, features=ALL_FEATURES),

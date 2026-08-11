@@ -583,3 +583,45 @@ def test_everything_else_keeps_the_tight_policy(client):
 def test_the_stripe_hosts_are_named_not_wildcarded(client, prices):
     csp = client.get("/billing").headers["content-security-policy"]
     assert "*.stripe.com" not in csp and "https://stripe.com" not in csp
+
+
+def test_the_pricing_page_offers_one_plan_and_scopes_its_support(client, monkeypatch):
+    class _EA:
+        class Price:
+            @staticmethod
+            def retrieve(ref):
+                return _StripeObject(
+                    {"unit_amount": 19900, "currency": "eur",
+                     "recurring": {"interval": "year"}}
+                )
+
+    monkeypatch.setattr(billing, "_stripe", lambda: _EA)
+    """One plan since 2026-08-11. A comparison grid and a cadence toggle are
+    both furniture when there is nothing to compare, and a lone card in a
+    three-column grid reads as two plans that failed to load."""
+    monkeypatch.setenv("STRIPE_PRICE_EARLY_ACCESS_ANNUAL", "price_test_ea")
+    for name in ("SOLO", "TEAM", "PORTFOLIO"):
+        for cadence in ("MONTHLY", "ANNUAL"):
+            monkeypatch.delenv(f"STRIPE_PRICE_{name}_{cadence}", raising=False)
+
+    # Whitespace-normalised: the copy is wrapped in the source, so asserting
+    # on a raw substring breaks whenever a line is reflowed rather than when
+    # the meaning changes.
+    raw = client.get("/pricing").text
+    body = " ".join(raw.split())
+    assert "cols-3" not in raw, "a single plan must not sit in a three-column grid"
+    assert "Early access" in body
+
+    # The price is explained as a moment, not left for the reader to read as
+    # a statement about what this is worth.
+    assert "early-access price" in body
+    assert "rises for people who join later, not for you" in body
+
+    # The support boundary is on the page that sells it, not only in a policy.
+    assert "What support covers" in body
+    assert "We do not advise on your obligations" in body
+    assert "whether you need a notified body" in body
+    assert "would be worse than one that says no" in body
+    # And what is actually promised, in the same breath.
+    assert "usually within two working days" in body
+    assert "no guaranteed response time" in body

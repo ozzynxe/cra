@@ -168,7 +168,7 @@ def test_paid_plans_differ_only_in_limits():
     withholds part of a legal obligation over the difference between two
     tiers."""
     table = entitlements.plans()
-    for name in ("solo", "team", "portfolio", "founding", "internal"):
+    for name in ("early_access", "solo", "team", "portfolio", "founding", "internal"):
         assert table[name].features == entitlements.ALL_FEATURES
 
 
@@ -304,3 +304,37 @@ def test_granted_plans_never_lapse():
 
     assert entitlements.GRANTS == frozenset({"free", "founding", "internal"})
     assert billing.entitlements.GRANTS is entitlements.GRANTS
+
+
+def test_early_access_is_the_only_plan_on_sale():
+    """One plan, not three. The old ladder priced by product count and named by
+    team size — two axes that had stopped meaning anything once every plan got
+    unlimited members, and the names pointed at the one that was never metered.
+
+    `solo`, `team` and `portfolio` stay in the ladder rather than being deleted:
+    `billing._plan_from` validates `metadata.cra_plan` against it, so removing a
+    name would make an existing subscription carrying it unresolvable. They are
+    off sale, which is a different thing and needs no migration.
+    """
+    dispatch._ensure_handlers_loaded()
+    table = entitlements.plans()
+    assert "early_access" in table
+    assert table["early_access"].max_products == 5
+    assert table["early_access"].features == entitlements.ALL_FEATURES
+    for legacy in ("solo", "team", "portfolio"):
+        assert legacy in table, f"{legacy} must stay resolvable for old subscriptions"
+
+
+def test_a_plan_with_no_configured_price_is_not_for_sale(monkeypatch):
+    """The mechanism that takes something off sale without touching the ladder:
+    `sellable_plans` reads the environment, so unsetting a price is the whole
+    change."""
+    from cra.server import billing
+
+    for name in ("SOLO", "TEAM", "PORTFOLIO", "EARLY_ACCESS"):
+        for cadence in ("MONTHLY", "ANNUAL"):
+            monkeypatch.delenv(f"STRIPE_PRICE_{name}_{cadence}", raising=False)
+    assert billing.sellable_plans() == {}
+
+    monkeypatch.setenv("STRIPE_PRICE_EARLY_ACCESS_ANNUAL", "price_test")
+    assert billing.sellable_plans() == {"early_access": ["annual"]}

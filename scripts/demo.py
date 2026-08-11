@@ -120,7 +120,7 @@ def main() -> None:
         member_states_available=["FI", "SE", "DE"],
         eu_login_registered=True,
         srp_registered=True,
-        security_contact="security@acme.example",
+        security_contact="security@acme-gateway.example.com",
     )
     show(call("check_reporting_readiness", product, owner), "ready", "summary")
 

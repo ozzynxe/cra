@@ -58,6 +58,7 @@ parts:
       # whole reason the risk assessment gates the checklist — these thirteen
       # points are conditional on it, and (1) above is not.
       - id: annex_i.i.2.a
+        conditional: true
         anchor: Annex I Pt I(2)(a)
         summary: Made available on the market without known exploitable vulnerabilities.
         evidence_hint: >-
@@ -65,63 +66,75 @@ parts:
           about the release, so evidence tied to a git SHA or build id is worth
           far more than a policy statement.
       - id: annex_i.i.2.b
+        conditional: true
         anchor: Annex I Pt I(2)(b)
         summary: >-
           Secure by default configuration, including the ability to reset the
           product to its original state — unless otherwise agreed between
           manufacturer and business user for a tailor-made product.
       - id: annex_i.i.2.c
+        conditional: true
         anchor: Annex I Pt I(2)(c)
         summary: >-
           Vulnerabilities can be addressed through security updates, including
           automatic updates where applicable, with opt-out and the option to
           postpone.
       - id: annex_i.i.2.d
+        conditional: true
         anchor: Annex I Pt I(2)(d)
         summary: >-
           Protection from unauthorised access by appropriate control
           mechanisms, including authentication and access management, and
           reporting of possible unauthorised access.
       - id: annex_i.i.2.e
+        conditional: true
         anchor: Annex I Pt I(2)(e)
         summary: >-
           Confidentiality of stored, transmitted or processed data, such as by
           state-of-the-art encryption at rest and in transit.
       - id: annex_i.i.2.f
+        conditional: true
         anchor: Annex I Pt I(2)(f)
         summary: >-
           Integrity of stored, transmitted or processed data, commands,
           programs and configuration against unauthorised manipulation, and
           reporting of corruption.
       - id: annex_i.i.2.g
+        conditional: true
         anchor: Annex I Pt I(2)(g)
         summary: >-
           Data minimisation — process only data adequate, relevant and limited
           to what is necessary for the intended purpose.
       - id: annex_i.i.2.h
+        conditional: true
         anchor: Annex I Pt I(2)(h)
         summary: >-
           Availability of essential and basic functions, including resilience
           and mitigation against denial-of-service.
       - id: annex_i.i.2.i
+        conditional: true
         anchor: Annex I Pt I(2)(i)
         summary: >-
           Minimise the product's negative impact on the availability of
           services provided by other devices or networks.
       - id: annex_i.i.2.j
+        conditional: true
         anchor: Annex I Pt I(2)(j)
         summary: Limit attack surfaces, including external interfaces.
       - id: annex_i.i.2.k
+        conditional: true
         anchor: Annex I Pt I(2)(k)
         summary: >-
           Reduce the impact of an incident using appropriate exploitation
           mitigation mechanisms and techniques.
       - id: annex_i.i.2.l
+        conditional: true
         anchor: Annex I Pt I(2)(l)
         summary: >-
           Provide security-related information by recording and monitoring
           relevant internal activity, with an opt-out for the user.
       - id: annex_i.i.2.m
+        conditional: true
         anchor: Annex I Pt I(2)(m)
         summary: >-
           Allow users to securely and permanently remove all data and

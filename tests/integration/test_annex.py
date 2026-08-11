@@ -1333,3 +1333,66 @@ def test_the_technical_file_carries_the_claim_separately_from_the_class(
     tf = _call("get_conformity_status", scoped, owner)
     assert tf["conformity_claimed"]["route"] == "self_assessment"
     assert "Module A" in tf["conformity_claimed"]["basis"]
+
+
+# ---- issue #47: some requirements cannot be ruled out at all -------------------
+
+
+def test_the_unconditional_part_i_requirement_cannot_be_ruled_out(scoped, owner):
+    """Issue #47. Annex I Pt I(2) opens "On the basis of the cybersecurity risk
+    assessment referred to in Article 13(2) **and where applicable**" — that
+    sentence is what makes (a)-(m) rule-out-able, and Pt I(1) sits above it.
+
+    The catalogue has recorded this since it was transcribed. Nothing acted on
+    it, so an end-to-end run marked thirteen Part I requirements not_applicable
+    on one canned phrase, I(1) among them, on a product recorded as in scope.
+
+    Refused rather than questioned, the same as `update_user_information` does
+    for the eleven non-conditional Annex II items: asking for a reason implies
+    a reason could make it optional.
+    """
+    out = _call(
+        "update_requirement", scoped, owner, req_id="annex_i.i.1",
+        applicability="not_applicable",
+        justification="Not applicable to this product type.",
+    )
+    assert out["ok"] is False
+    assert "cannot be marked not_applicable" in out["error"]
+    assert "where applicable" in out["error"]
+    # And it names the decision this actually is, if the user means it.
+    assert "classify_product(in_scope=false" in out["error"]
+
+    # Nothing was written on the way to the refusal.
+    row = next(
+        r for r in _call("list_requirements", scoped, owner)["requirements"]
+        if r["req_id"] == "annex_i.i.1"
+    )
+    assert row["applicability"] == "undetermined"
+
+
+def test_the_conditional_part_i_requirements_can_still_be_ruled_out(scoped, owner):
+    """The other side. (a)-(m) are exactly what the chapeau qualifies, and
+    ruling one out with a reason is the normal, intended act."""
+    out = _call(
+        "update_requirement", scoped, owner, req_id="annex_i.i.2.d",
+        applicability="not_applicable",
+        justification="The product stores no personal or sensitive data at rest.",
+    )
+    assert out["ok"] is True
+    assert out["requirement"]["applicability"] == "not_applicable"
+
+
+def test_an_out_of_scope_product_can_rule_out_anything(product, owner):
+    """The refusal is conditioned on being in scope, because that is what makes
+    Pt I(1) bite. A product recorded as out of scope has no Annex I duties to
+    determine."""
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="Initial read.")
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=False, rationale="Pure SaaS with no product component — Article 2.")
+    out = _call(
+        "update_requirement", product, owner, req_id="annex_i.i.1",
+        applicability="not_applicable",
+        justification="Out of scope; recorded for completeness.",
+    )
+    assert out["ok"] is True

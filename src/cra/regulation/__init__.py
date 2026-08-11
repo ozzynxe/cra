@@ -40,6 +40,16 @@ class Requirement:
     anchor: str
     summary: str
     evidence_hint: str = ""
+    # Whether the annex itself qualifies the requirement. Annex I Pt I(2)
+    # opens "On the basis of the cybersecurity risk assessment referred to
+    # in Article 13(2) **and where applicable**", which is what makes
+    # (a)-(m) rule-out-able. Pt I(1) sits above that sentence and Part II
+    # has its own unconditional chapeau.
+    #
+    # A statement about the regulation, not permission to skip — the same
+    # meaning `conditional` carries on `UserInfoItem`, and used at the one
+    # moment it matters rather than only when asked.
+    conditional: bool = False
 
     def citation_url(self, celex: str = eurlex.CRA_CELEX) -> str:
         return eurlex.citation_url(celex)
@@ -135,6 +145,7 @@ def requirements() -> tuple[Requirement, ...]:
                     anchor=r["anchor"],
                     summary=r["summary"].strip(),
                     evidence_hint=(r.get("evidence_hint") or "").strip(),
+                    conditional=bool(r.get("conditional")),
                 )
             )
     return tuple(out)

@@ -134,7 +134,48 @@ def _make_releasable(call, product_id: str, owner: str) -> None:
     # each one out with a justification is the shortest honest way to a settled
     # checklist: the tool refuses `not_applicable` on its own, and an auditor
     # reads the justification rather than the flag.
+    #
+    # Except where it cannot be ruled out. Annex I Pt I(1) is unconditional for
+    # an in-scope product (#47), so this fixture used to set a state the tool
+    # now refuses — and would have gone on producing releasable products by
+    # asserting something the regulation does not offer. Those are settled the
+    # other way: applicable, verified, with evidence, which is what a real
+    # product would have to do.
+    unconditional = {
+        r["req_id"]
+        for r in call("list_requirements", product_id, owner)["requirements"]
+        if r["req_id"] == "annex_i.i.1"
+    }
     for item in call("list_requirements", product_id, owner)["requirements"]:
+        if item["req_id"] in unconditional:
+            _ok(
+                call(
+                    "update_requirement",
+                    product_id,
+                    owner,
+                    req_id=item["req_id"],
+                    applicability="applicable",
+                    status="verified",
+                    implementation_note=(
+                        "Fixture product: settled for test setup, not a real "
+                        "conformity determination."
+                    ),
+                ),
+                f"update_requirement({item['req_id']})",
+            )
+            _ok(
+                call(
+                    "attach_evidence",
+                    product_id,
+                    owner,
+                    subject_ref=f"requirement:{item['req_id']}",
+                    title="Fixture evidence",
+                    body='{"fixture": true}',
+                    source_ref="git:fixture",
+                ),
+                f"attach_evidence({item['req_id']})",
+            )
+            continue
         _ok(
             call(
                 "update_requirement",

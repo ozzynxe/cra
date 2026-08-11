@@ -309,6 +309,45 @@ def draft_report(
         }
 
 
+# Reserved by RFC 2606 §2 precisely so they can never resolve. A contact at one
+# of these is not a typo to be interpreted — it is a placeholder that will never
+# receive a report, and it reached a readiness check that reported no gaps.
+_UNRESOLVABLE_TLDS = (".invalid", ".example", ".test", ".localhost")
+
+
+def _check_security_contact(value: str) -> None:
+    """Refuse a contact that provably cannot receive anything.
+
+    Shape, not substance — the distinction this codebase runs on. Nothing here
+    reads the address for plausibility, decides whether the mailbox is
+    monitored, or sends anything to it. It refuses two things that are true
+    regardless of context: a value with no `@` at all, and a domain the IETF
+    reserved so that it could never exist.
+
+    A URL is allowed through: Annex I Pt II(5) asks for a contact address for
+    reporting vulnerabilities, and a disclosure page is a perfectly good one.
+    """
+    v = (value or "").strip()
+    if not v:
+        return
+    looks_like_url = v.lower().startswith(("http://", "https://"))
+    if not looks_like_url and "@" not in v:
+        raise InvalidState(
+            f"security_contact {v!r} is neither an email address nor a URL. "
+            "This is the address an exploited-vulnerability report reaches you "
+            "on — Annex I Pt II(5) — so it has to be something a finder can "
+            "actually use."
+        )
+    host = v.rsplit("@", 1)[-1].rstrip("/").lower()
+    if host.endswith(_UNRESOLVABLE_TLDS):
+        raise InvalidState(
+            f"security_contact {v!r} uses a reserved domain that cannot exist "
+            "(RFC 2606). A placeholder here is worse than an empty field: the "
+            "readiness check would report nothing outstanding while the one "
+            "route a vulnerability report takes to you goes nowhere."
+        )
+
+
 def set_submitter_profile(
     *,
     product_id: str,
@@ -326,6 +365,9 @@ def set_submitter_profile(
     Kept separate from the product because it answers a different question:
     not "what did we ship" but "who is answerable and are they able to submit".
     """
+    if security_contact is not None:
+        _check_security_contact(security_contact)
+
     def _apply(state, db):
         _member(state, actor_id)
 
@@ -425,7 +467,21 @@ def check_reporting_readiness(*, product_id: str, actor_id: str = "") -> dict:
             "set_submitter_profile(security_contact=...).",
         )
 
-    return {
+    # What "ready" rests on. Issue #48: an end-to-end run set both registration
+    # flags true on the strength of a prompt saying registration was "on
+    # someone's list", and got `ready: true` with an empty blocker list and
+    # nothing marking either claim as unverified.
+    #
+    # Not a request to verify them — the tool cannot check EU Login enrolment
+    # and should not try, the same reason `disclosure_policy_url` and the
+    # simplified declaration's address are recorded verbatim and never fetched.
+    # What it can do is stop presenting an assertion as a finding, which is what
+    # every other unverifiable claim here already does.
+    asserted = [
+        k for k, v in (("eu_login", p.eu_login_registered), ("srp", p.srp_registered))
+        if v is True
+    ]
+    out = {
         "ok": True,
         "product_id": product_id,
         "ready": not blockers,
@@ -436,6 +492,16 @@ def check_reporting_readiness(*, product_id: str, actor_id: str = "") -> dict:
             else f"{len(blockers)} thing(s) to sort out before an incident, not during one."
         ),
     }
+    if asserted:
+        out["asserted_not_verified"] = asserted
+        out["basis"] = (
+            "EU Login and SRP registration are recorded because you said so — "
+            "nothing here checked either, and nothing can. An empty blocker "
+            "list means nothing outstanding *was recorded*, not that a "
+            "submission would succeed. The one way to find out is to log in "
+            "before you need to."
+        )
+    return out
 
 
 _dispatch.register_mutating("draft_report", draft_report)

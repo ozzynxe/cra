@@ -258,7 +258,10 @@ def test_the_corrective_measure_date_reaches_the_final_report(product, owner):
         remediation_ref="https://acme.example/advisory/2026-01",
     )
     r = _call("draft_report", product, owner, incident_id=v["incident_id"], stage="final")
-    assert r["fields"]["v21"].startswith(fix.date().isoformat())
+    # Parsed, not prefix-matched. `v21` renders with an offset, so comparing
+    # against a UTC date string passes for most of the day and fails when
+    # local time has already rolled over — which it had when this was written.
+    assert datetime.fromisoformat(r["fields"]["v21"]) == fix
     assert r["fields"]["v26"] == "https://acme.example/advisory/2026-01"
     assert "v21" not in {g["field_id"] for g in r["missing_required"]}
 
@@ -357,7 +360,7 @@ def test_readiness_clears_once_the_profile_is_complete(product, owner):
         member_states_available=["FI", "SE"],
         eu_login_registered=True,
         srp_registered=True,
-        security_contact="security@acme.example",
+        security_contact="security@acme-gateway.example.com",
     )
     r = _call("check_reporting_readiness", product, owner)
     assert r["ready"] is True
@@ -381,6 +384,70 @@ def test_the_profile_reaches_the_draft(product, owner, incident):
 
 def test_setting_one_profile_field_leaves_the_others_alone(product, owner):
     _call("set_submitter_profile", product, owner, legal_name="Acme Oy")
-    r = _call("set_submitter_profile", product, owner, security_contact="s@acme.example")
+    r = _call("set_submitter_profile", product, owner, security_contact="s@acme-gateway.example.com")
     assert r["submitter"]["legal_name"] == "Acme Oy"
-    assert r["submitter"]["security_contact"] == "s@acme.example"
+    assert r["submitter"]["security_contact"] == "s@acme-gateway.example.com"
+
+
+# ---- issue #48: asserted registration is not verified registration ------------
+
+
+def test_asserted_registration_is_marked_as_asserted(product, owner):
+    """Issue #48. An end-to-end run set both flags true on the strength of a
+    prompt saying registration was "on someone's list", and got `ready: true`
+    with an empty blocker list and nothing marking either claim unverified.
+
+    Not a request to verify them — the tool cannot check EU Login enrolment and
+    should not try, the same reason a disclosure URL is recorded verbatim and
+    never fetched. What it can do is stop presenting an assertion as a finding.
+    """
+    _call(
+        "set_submitter_profile", product, owner,
+        legal_name="Acme Oy",
+        eu_login_registered=True,
+        srp_registered=True,
+        member_states_available=["FI"],
+        security_contact="security@acme-gateway.example.com",
+    )
+    r = _call("check_reporting_readiness", product, owner)
+    assert r["ready"] is True
+    assert r["blockers"] == []
+    assert set(r["asserted_not_verified"]) == {"eu_login", "srp"}
+    assert "nothing here checked either" in r["basis"]
+    assert "not that a submission would succeed" in r["basis"]
+
+
+def test_nothing_asserted_means_no_caveat(product, owner):
+    """A caveat on every response is a caveat nobody finishes reading."""
+    _call("set_submitter_profile", product, owner, legal_name="Acme Oy")
+    r = _call("check_reporting_readiness", product, owner)
+    assert "asserted_not_verified" not in r
+    assert "basis" not in r
+
+
+def test_a_contact_that_can_never_receive_anything_is_refused(product, owner):
+    """`security@example.invalid` reached a readiness check that then reported
+    no gaps. RFC 2606 reserves the domain precisely so it can never resolve, so
+    this is a statement about shape rather than about substance — nothing here
+    reads the address for plausibility or decides whether anyone monitors it.
+    """
+    r = _call("set_submitter_profile", product, owner,
+              security_contact="security@example.invalid")
+    assert r["ok"] is False
+    assert "cannot exist" in r["error"]
+    assert "readiness check would report nothing outstanding" in r["error"]
+
+
+def test_a_contact_with_no_address_at_all_is_refused(product, owner):
+    r = _call("set_submitter_profile", product, owner, security_contact="ask Priya")
+    assert r["ok"] is False
+    assert "neither an email address nor a URL" in r["error"]
+
+
+def test_a_disclosure_page_is_a_valid_contact(product, owner):
+    """Annex I Pt II(5) asks for a contact address for reporting
+    vulnerabilities. A disclosure page is one, and refusing it would push people
+    towards a mailbox they do not read."""
+    r = _call("set_submitter_profile", product, owner,
+              security_contact="https://acme-gateway.example.com/security")
+    assert r["ok"] is True

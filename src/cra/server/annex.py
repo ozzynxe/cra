@@ -381,6 +381,44 @@ def update_requirement(
             item.justification = justification.strip()
             changed["justification"] = item.justification
 
+        # Some requirements cannot be ruled out at all, and asking for a reason
+        # implies one could make them optional. Annex I Pt I(2) opens "On the
+        # basis of the cybersecurity risk assessment referred to in Article
+        # 13(2) and where applicable" — that sentence is what makes (a)-(m)
+        # rule-out-able, and Pt I(1) sits above it. An end-to-end run marked
+        # thirteen Part I requirements not_applicable on one canned phrase,
+        # I(1) among them, on a product recorded as in scope.
+        #
+        # Checked before the justification rule below, so the answer is "this
+        # one cannot be ruled out" rather than "give me a better reason" — the
+        # same move `update_user_information` makes for the eleven Annex II
+        # items the annex does not qualify.
+        #
+        # **Part I only.** The eight Part II points are unconditional too, but
+        # their chapeau is addressed to *manufacturers* — so a steward or an
+        # importer may legitimately rule one out, and refusing would need the
+        # Article 24 analysis this does not have. Marked in the catalogue,
+        # deliberately not enforced here.
+        cat = _CATALOGUE.get(req_id)
+        if (
+            item.applicability == Applicability.NOT_APPLICABLE
+            and cat is not None
+            and cat.part == "part_i"
+            and not cat.conditional
+            and state.classification.in_scope is True
+        ):
+            raise InvalidState(
+                f"{req_id} cannot be marked not_applicable while this product "
+                "is recorded as in scope. Annex I Pt I(2)(a)-(m) are qualified "
+                "by their chapeau — \"on the basis of the cybersecurity risk "
+                "assessment referred to in Article 13(2) and where "
+                f"applicable\" — and {cat.anchor} sits above that sentence. It "
+                "applies to every product with digital elements that is in "
+                "scope, so there is no determination to record here. If the "
+                "product is out of scope, that is a classification decision: "
+                "classify_product(in_scope=false, rationale=...)."
+            )
+
         # Checked after both assignments so it catches "set not_applicable now,
         # justify later" as well as a bare flag flip — and so that switching *back*
         # to applicable does not leave a stale justification behind.

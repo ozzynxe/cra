@@ -117,15 +117,25 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         name: str,
         description: str = "",
         intended_use: str = "",
-        economic_operator_role: str = "manufacturer",
+        economic_operator_role: Optional[str] = None,
     ) -> dict:
         """Start tracking a product for CRA compliance.
 
         `economic_operator_role` is one of `manufacturer`,
         `authorised_representative`, `importer`, `distributor`,
         `open_source_steward` — it decides which obligations apply, so it is
-        not a permission level. Ask the user rather than assuming
-        `manufacturer`; an open-source steward has a genuinely lighter regime.
+        not a permission level.
+
+        **Ask; do not let it default.** Omitted, it is recorded as
+        `manufacturer` and the reply says so — but that is the heaviest
+        obligation set, and it decides whether the Annex I checklist is
+        something the user owes or something they are keeping voluntarily.
+        Annex I binds manufacturers (Article 13(1)); an importer verifies that
+        the manufacturer complied (Article 19); a distributor checks the CE
+        marking (Article 20); an open-source steward has a cybersecurity
+        policy, part of the reporting duty, and no Annex I obligation at all
+        (Article 24). One question settles it: do they build this, or ship
+        somebody else's?
 
         Creates the product with classification undetermined. Nothing is
         assessed until `classify_product` runs.
@@ -762,6 +772,44 @@ def register_tools(mcp, actor_id: str, product_id_default: Optional[str] = None)
         )
 
     # ---- scope, evidence, and the team ---------------------------------------
+
+    @mcp.tool(annotations=_annot("Set economic operator role", _WRITE_LEGAL))
+    def set_economic_operator_role(
+        role: str,
+        rationale: str,
+        product_id: Optional[str] = None,
+    ) -> dict:
+        """Change which CRA role this party plays for the product, and say why.
+
+        `role` is `manufacturer`, `authorised_representative`, `importer`,
+        `distributor` or `open_source_steward`.
+
+        **This decides which obligations exist at all.** Annex I binds
+        manufacturers (Article 13(1)). An importer verifies that someone else
+        complied (Article 19). A distributor checks the CE marking (Article
+        20). An open-source steward has a cybersecurity policy and part of the
+        reporting duty, and no Annex I obligation whatever (Article 24).
+
+        **Reach for this when the answer changes.** Article 21: an importer or
+        distributor "shall be considered to be a manufacturer … where that
+        importer or distributor places a product with digital elements on the
+        market under its name or trademark or carries out a substantial
+        modification". If your user starts rebranding or forking-and-shipping a
+        product they used to only distribute, they have become the
+        manufacturer — record it here, and the requirements they were tracking
+        become obligations they owe.
+
+        `rationale` is required, as it is for classification, and for the same
+        reason: this is a legal determination and it is what a human re-checks.
+        "We now ship this under our own brand" is the answer; "importer" is
+        not.
+        """
+        return dispatcher.dispatch(
+            "set_economic_operator_role",
+            _pid(product_id),
+            actor_id,
+            {"role": role, "rationale": rationale},
+        )
 
     @mcp.tool(annotations=_annot("Classify product", _WRITE_LEGAL))
     def classify_product(

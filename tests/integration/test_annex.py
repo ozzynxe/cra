@@ -1474,3 +1474,39 @@ def test_the_refusal_names_undetermined_as_the_honest_state(scoped, owner):
     assert out["ok"] is False
     assert "work you have not done yet" in out["error"]
     assert "`undetermined` or `in_progress`" in out["error"]
+
+
+def test_a_voluntary_technical_file_says_so_in_its_frozen_body(scoped, owner):
+    """#52's sharpest edge. A file frozen by a steward is byte-identical in
+    shape to a manufacturer's, and the moment it leaves this service nothing
+    distinguishes them. So the basis goes in the hashed payload, not only in
+    the reply — and the reply says it above `complete`, which is the field an
+    agent quotes.
+    """
+    _call("set_economic_operator_role", scoped, owner, role="open_source_steward",
+          rationale="We steward the upstream project.")
+    tf = _call("assemble_technical_file", scoped, owner)
+    assert tf["annex_i"]["binds_you"] is False
+    assert "not your statutory obligations" in tf["not_your_obligation"]
+    # Ahead of the completeness figure in the payload order.
+    keys = list(tf)
+    assert keys.index("not_your_obligation") < keys.index("complete")
+
+    _fill_file(scoped, owner)
+    frozen = _call("assemble_technical_file", scoped, owner, finalize=True)
+    assert frozen["ok"] is True
+
+    import json
+    from cra.db import Evidence
+    with session_scope() as s:
+        row = s.get(Evidence, frozen["evidence_id"])
+    body = json.loads(row.inline_body)
+    assert body["annex_i_obligation"]["binds_you"] is False
+    assert body["payload_version"] == 3
+
+
+def test_a_manufacturers_file_carries_the_same_field_saying_it_binds(scoped, owner):
+    _fill_file(scoped, owner)
+    tf = _call("assemble_technical_file", scoped, owner)
+    assert tf["annex_i"]["binds_you"] is True
+    assert "not_your_obligation" not in tf

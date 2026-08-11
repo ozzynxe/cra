@@ -178,6 +178,7 @@ async def test_tools_round_trip_over_mcp(server):
                 "check_reporting_readiness",
                 "set_submitter_profile",
                 "classify_product",
+                "set_economic_operator_role",
                 "scan_advisories",
                 "list_advisory_candidates",
                 "confirm_advisory",

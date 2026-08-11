@@ -42,6 +42,7 @@ from cra.regulation import eurlex
 from cra.schemas import RequirementItem, SupportPeriod, UserInfoItem
 from cra.schemas.enums import (
     Applicability,
+    EconomicOperatorRole,
     ConformityRoute,
     EvidenceKind,
     ProductClass,
@@ -87,6 +88,67 @@ def _member(state, actor_id: str, *, minimum: Role = Role.VIEWER):
             f"this needs {minimum.value} or above; you are {info.role}"
         )
     return info
+
+
+def obligation_view(state) -> dict:
+    """Whether Annex I binds *this* party. Derived, never stored.
+
+    Article 13(1) imposes Annex I Part I on manufacturers: "When placing a
+    product with digital elements on the market, manufacturers shall ensure
+    that it has been designed, developed and produced in accordance with the
+    essential cybersecurity requirements set out in Part I of Annex I."
+
+    Nobody else is bound by it. Article 19(1) has importers place on the market
+    only products that comply and where "the processes put in place by **the
+    manufacturer**" satisfy Part II — a duty to verify someone else's
+    compliance. Article 20 has distributors act with due care and check the CE
+    marking. Article 24 gives open-source stewards a cybersecurity policy, a
+    duty to cooperate, and parts of Article 14; Annex I appears nowhere in it.
+
+    This checklist was seeded for every one of them regardless, so a steward
+    opening the tool was told they had fourteen product requirements and eight
+    vulnerability-handling requirements outstanding. That is the failure this
+    product exists to prevent, pointed at the user's obligations instead of
+    their evidence: an invented duty reading as a statutory one, asserted more
+    confidently than anything the tool actually checks.
+
+    **A boolean, not a taxonomy.** Annex I is always the manufacturer's
+    obligation; the only variable is whether this party is a manufacturer.
+    Whether they are one by building the product or by Article 21 — placing it
+    under their own name, or substantially modifying it — makes no difference,
+    because 21 says such a party "shall be considered to be a manufacturer".
+    So the role field already carries the answer and no second flag is needed.
+
+    And it does not enumerate *why* anyone else is tracking the requirements.
+    An authorised representative administers the file under a mandate, an
+    importer may be checking before a modification, a steward may simply want
+    to. Those are three different reasons and none of them changes what is
+    true: Annex I is not their obligation. The reason belongs in the rationale
+    on the role, which is theirs to write.
+    """
+    # `use_enum_values=True` on the state blob means this is a plain string
+    # once loaded, and the enum member only when just assigned. Normalised
+    # rather than compared twice.
+    role = getattr(state.economic_operator_role, "value", state.economic_operator_role)
+    binds = role == EconomicOperatorRole.MANUFACTURER.value
+    out = {
+        "binds_you": bool(binds),
+        "whose_obligation": "manufacturer",
+        "economic_operator_role": role,
+    }
+    if not binds:
+        out["note"] = (
+            "Annex I binds the manufacturer — Article 13(1). This product is "
+            f"recorded as {role}, so these are not your statutory obligations "
+            "and nothing here says they are. Recording them anyway is a "
+            "legitimate thing to do; the file it produces is your own tracking "
+            "rather than a manufacturer's technical documentation. If you "
+            "place this on the market under your own name or substantially "
+            "modify it, Article 21 makes you the manufacturer and they become "
+            "binding — record that with "
+            "set_economic_operator_role(role='manufacturer', rationale=...)."
+        )
+    return out
 
 
 # ---- classification ----------------------------------------------------------
@@ -1179,7 +1241,92 @@ def get_recent_activity(
 
 
 
+def set_economic_operator_role(
+    *,
+    product_id: str,
+    actor_id: str = "",
+    role: str,
+    rationale: str,
+) -> dict:
+    """Change which CRA role this party plays, and record why.
+
+    The role was write-once at `create_product` until now, which made the
+    Article 21 transition unrecordable. An importer or distributor "shall be
+    considered to be a manufacturer … where that importer or distributor places
+    a product with digital elements on the market under its name or trademark
+    or carries out a substantial modification" — so the role genuinely changes,
+    and the only options were to leave the record saying `importer` while being
+    the manufacturer in law, or start a new product and abandon every
+    requirement, evidence row and audit entry against the old one.
+
+    `rationale` is mandatory for the same reason it is on `classify_product`:
+    this is a legal determination, it decides which obligations apply, and it
+    is what a human re-checks and an auditor reads. "We now ship this under our
+    own brand" and "we fork and modify before shipping" are the answers that
+    matter.
+    """
+    try:
+        new_role = EconomicOperatorRole(role)
+    except ValueError as e:
+        raise InvalidState(
+            f"role must be one of {[r.value for r in EconomicOperatorRole]}, "
+            f"not {role!r}"
+        ) from e
+    if not rationale.strip():
+        raise InvalidState(
+            "rationale is required. The economic operator role decides which "
+            "obligations apply at all — Annex I binds manufacturers, Article "
+            "19 gives importers a duty to verify, Article 24 gives stewards a "
+            "different regime — so changing it without recording why leaves "
+            "the most consequential fact about this product unexplained."
+        )
+
+    def _apply(state, db):
+        _member(state, actor_id, minimum=Role.MAINTAINER)
+        before = state.economic_operator_role
+        state.economic_operator_role = new_role
+        audit.record(
+            db,
+            product_id=product_id,
+            subject_type="economic_operator_role",
+            subject_id=product_id,
+            op="set_economic_operator_role",
+            accountable_user_id=actor_id or None,
+            rationale=rationale.strip()[:500],
+            payload={"from": before, "to": new_role.value},
+        )
+        return state, before
+
+    before = store_backend.mutate(product_id, _apply)
+    state = _load(product_id)
+    out = {
+        "ok": True,
+        "economic_operator_role": state.economic_operator_role,
+        "previous": before,
+        "annex_i": obligation_view(state),
+    }
+    if before != new_role.value and new_role == EconomicOperatorRole.MANUFACTURER:
+        out["now_binding"] = (
+            f"Recorded as manufacturer, previously {before}. The Annex I "
+            "requirements on this product are now your statutory obligations "
+            "rather than tracking — Article 13(1) — and Article 14's reporting "
+            "clocks apply to you. Anything already recorded against them "
+            "stands; what changes is whose duty it is."
+        )
+    elif before != new_role.value and before == EconomicOperatorRole.MANUFACTURER.value:
+        out["care"] = (
+            f"Recorded as {new_role.value}, previously manufacturer. Annex I "
+            "no longer reports as binding on you. If this product was placed "
+            "on the market while you were the manufacturer, the obligations "
+            "that attached then did not end — Article 13(13) keeps the "
+            "technical documentation for ten years, and the support period "
+            "runs to its recorded end."
+        )
+    return out
+
+
 _dispatch.register_mutating("classify_product", classify_product)
+_dispatch.register_mutating("set_economic_operator_role", set_economic_operator_role)
 _dispatch.register_mutating("record_sbom", record_sbom)
 _dispatch.register_mutating("set_support_period", set_support_period)
 _dispatch.register_read("list_user_information", list_user_information)

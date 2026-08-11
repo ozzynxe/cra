@@ -528,3 +528,111 @@ def test_every_product_scoped_tool_refuses_a_non_member(product, tool, args):
     r = _call(tool, product, stranger, **args)
     assert r["ok"] is False, f"{tool} leaked to a non-member"
     assert r["code"] in ("not_found", "permission_denied"), tool
+
+
+# ---- issue #52: Annex I binds manufacturers, and nobody else -------------------
+
+
+def test_annex_i_is_not_reported_as_binding_on_a_steward(product, owner):
+    """Issue #52, verified against the regulation.
+
+    Article 13(1) imposes Annex I Part I on manufacturers. Article 19(1) has
+    importers verify that *the manufacturer's* processes comply; Article 20 has
+    distributors check the CE marking; Article 24 gives stewards a policy, a
+    duty to cooperate, and part of Article 14 — Annex I appears nowhere in it.
+
+    The checklist was seeded for all of them regardless, so a steward opening
+    this tool was told they had twenty-two outstanding requirements. Tracking
+    them is a legitimate thing to do; being told they are owed is not.
+    """
+    _call("set_economic_operator_role", product, owner, role="open_source_steward",
+          rationale="We steward an upstream library; we do not place it on the market.")
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="In scope as a product with digital elements.")
+
+    reqs = _call("list_requirements", product, owner)
+    assert reqs["count"] == 22, "the checklist is still available"
+    assert reqs["annex_i"]["binds_you"] is False
+    assert reqs["annex_i"]["whose_obligation"] == "manufacturer"
+    assert "Article 13(1)" in reqs["annex_i"]["note"]
+    assert "legitimate thing to do" in reqs["annex_i"]["note"]
+    # And it names the transition that would make them binding.
+    assert "Article 21" in reqs["annex_i"]["note"]
+
+    status = _call("get_compliance_status", product, owner)
+    assert status["requirements"]["annex_i"]["binds_you"] is False
+
+
+def test_a_manufacturer_is_told_they_are_bound(product, owner):
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="We build and ship it.")
+    reqs = _call("list_requirements", product, owner)
+    assert reqs["annex_i"]["binds_you"] is True
+    # No caveat where there is nothing to caveat.
+    assert "note" not in reqs["annex_i"]
+
+
+def test_the_article_21_transition_can_be_recorded(product, owner):
+    """The hole underneath #52. The role was write-once at create_product, so an
+    importer who went on to substantially modify — becoming a manufacturer in
+    law under Article 21 — could either leave the record wrong or start a new
+    product and abandon every requirement, evidence row and audit entry.
+    """
+    _call("set_economic_operator_role", product, owner, role="importer",
+          rationale="We import and resell without modification.")
+    _call("classify_product", product, owner, product_class="default",
+          in_scope=True, rationale="In scope.")
+    assert _call("list_requirements", product, owner)["annex_i"]["binds_you"] is False
+
+    out = _call("set_economic_operator_role", product, owner, role="manufacturer",
+                rationale="We now fork and ship it under our own brand.")
+    assert out["ok"] is True
+    assert out["previous"] == "importer"
+    assert out["annex_i"]["binds_you"] is True
+    assert "now your statutory obligations" in out["now_binding"]
+    assert "Anything already recorded against them stands" in out["now_binding"]
+
+    assert _call("list_requirements", product, owner)["annex_i"]["binds_you"] is True
+
+
+def test_stepping_back_from_manufacturer_does_not_erase_what_attached(product, owner):
+    """The other direction, and the honest thing to say about it. Obligations
+    that attached while they were the manufacturer did not end — 13(13) keeps
+    the documentation ten years."""
+    out = _call("set_economic_operator_role", product, owner, role="distributor",
+                rationale="Corrected: we only distribute this.")
+    assert out["ok"] is True
+    assert "did not end" in out["care"]
+    assert "ten years" in out["care"]
+
+
+def test_changing_the_role_without_a_reason_is_refused(product, owner):
+    out = _call("set_economic_operator_role", product, owner,
+                role="open_source_steward", rationale="   ")
+    assert out["ok"] is False
+    assert "rationale is required" in out["error"]
+    assert "which obligations apply" in out["error"]
+
+
+def test_an_unknown_role_lists_the_real_ones(product, owner):
+    out = _call("set_economic_operator_role", product, owner,
+                role="reseller", rationale="x")
+    assert out["ok"] is False
+    assert "open_source_steward" in out["error"]
+
+
+def test_creating_a_product_says_when_it_assumed_the_role(owner):
+    """#45's journey 2 finding: the role was defaulted silently. It is still
+    assumed — refusing to create a product until the question is answered is
+    worse — but the reply now says so."""
+    made = dispatcher.dispatch("create_product", "", owner, {"name": "Assumed"})
+    assert made["economic_operator_role"] == "manufacturer"
+    assert "No economic_operator_role was given" in made["role_assumed"]
+    assert "Article 24" in made["role_assumed"]
+
+    stated = dispatcher.dispatch(
+        "create_product", "", owner,
+        {"name": "Stated", "economic_operator_role": "importer"},
+    )
+    assert stated["economic_operator_role"] == "importer"
+    assert "role_assumed" not in stated

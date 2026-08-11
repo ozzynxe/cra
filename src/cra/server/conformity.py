@@ -80,6 +80,7 @@ from cra.server.scoping import (
     _ENUM_TO_CLASS,
     _load,
     _member,
+    obligation_view,
     _ui_settled,
     _years_between,
 )
@@ -258,7 +259,7 @@ def _evidence_by_subject(db, product_id: str) -> dict[str, list[Evidence]]:
 # The payload the technical-file hash is taken over. Bumped when what counts as
 # the file's *content* changes, so a signature taken under an earlier definition
 # can be recognised rather than silently compared against a new one.
-HASH_PAYLOAD_VERSION = 2
+HASH_PAYLOAD_VERSION = 3
 
 
 def _narrative(state) -> dict:
@@ -623,6 +624,12 @@ def assemble_technical_file(
         # widening the payload later is indistinguishable from the file having
         # changed, and every existing signature reads as superseded on deploy.
         "payload_version": HASH_PAYLOAD_VERSION,
+        # Whose obligation this file documents. In the hashed body, not
+        # only in the reply: a frozen file produced by a steward or an
+        # importer is indistinguishable from a manufacturer's once it
+        # leaves this service, and that is the version of this document
+        # that travels. Payload version 3 exists for this line.
+        "annex_i_obligation": obligation_view(state),
         "product_id": product_id,
         "product_name": state.name,
         "product_class": state.classification.product_class,
@@ -648,9 +655,17 @@ def assemble_technical_file(
     digest = hashlib.sha256(body.encode()).hexdigest()
     assembled_at = _now().isoformat()
 
+    _obl = obligation_view(state)
     result = {
         "ok": True,
         "product_id": product_id,
+        # Ahead of `complete`, because "complete" is the field an agent quotes
+        # and it means something different when the file documents somebody
+        # else's obligation. A qualification below the headline is one that
+        # does not survive being summarised — the #31 lesson.
+        **(
+            {"not_your_obligation": _obl["note"]} if not _obl["binds_you"] else {}
+        ),
         # "complete" means every section that *can* be filled now is filled.
         # The declaration slot is reported separately in `deferred_slots`.
         "complete": not missing,
@@ -670,6 +685,7 @@ def assemble_technical_file(
         # an end-to-end run ruled two Annex I essential requirements out on "x"
         # and "n/a", and nothing downstream mentioned it again.
         "thin_justifications": thin,
+        "annex_i": obligation_view(state),
         "content_hash": digest,
         # Beside the hash rather than inside it. A hash on its own says what the
         # file was and not when it was read, and the printed gap report is the

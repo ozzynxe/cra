@@ -147,12 +147,22 @@ def create_product(
     name: str,
     description: str = "",
     intended_use: str = "",
-    economic_operator_role: str = EconomicOperatorRole.MANUFACTURER.value,
+    economic_operator_role: Optional[str] = None,
 ) -> dict:
     now = _now()
     entitlements.require_room_for_product(actor_id)
+    # Assumed rather than defaulted silently. The role decides which
+    # obligations exist at all — Annex I binds manufacturers and nobody
+    # else — and a parameter that quietly says `manufacturer` is why almost
+    # every product in the store claims to be one whether or not anyone
+    # chose it. The assumption is still made, because refusing to create a
+    # product until the question is answered is worse; what changes is that
+    # the reply says so.
+    assumed_role = economic_operator_role is None
     try:
-        role = EconomicOperatorRole(economic_operator_role)
+        role = EconomicOperatorRole(
+            economic_operator_role or EconomicOperatorRole.MANUFACTURER.value
+        )
     except ValueError as e:
         # An enum ValueError enveloped as `internal_error` tells the model
         # nothing it can act on, and this is a value it has to choose.
@@ -181,10 +191,11 @@ def create_product(
         updated_at=now,
     )
     store_backend.get_backend().save_state(state)
-    return {
+    out = {
         "ok": True,
         "product_id": pid,
         "name": name,
+        "economic_operator_role": role.value,
         "next": (
             "Classification is undetermined. Run classify_product() to find out "
             "whether the CRA applies and which product class you're in — that "
@@ -192,10 +203,24 @@ def create_product(
         ),
         "disclaimer": _DISCLAIMER,
     }
+    if assumed_role:
+        out["role_assumed"] = (
+            "No economic_operator_role was given, so this product is recorded "
+            "as `manufacturer` — the most common case and the heaviest "
+            "obligation set. Ask the user, because it decides which duties "
+            "exist at all: Annex I binds manufacturers (Article 13(1)), an "
+            "importer verifies someone else's compliance (Article 19), a "
+            "distributor checks the CE marking (Article 20), and an "
+            "open-source steward has no Annex I obligation whatever (Article "
+            "24). Correct it with set_economic_operator_role(role=..., "
+            "rationale=...) — nothing is lost by changing it later."
+        )
+    return out
 
 
 def get_compliance_status(*, product_id: str, actor_id: str = "") -> dict:
     from cra.server import reporting  # local: avoids an import cycle at module load
+    from cra.server.scoping import obligation_view as _obligation  # same reason
 
     s = _load(product_id)
     # Membership gate. This read returns unreported exploited-vulnerability
@@ -251,6 +276,11 @@ def get_compliance_status(*, product_id: str, actor_id: str = "") -> dict:
         # I applies on the basis of the Article 13(2) assessment.
         "risk_assessment": risk._assessment_view(s),
         "requirements": {
+            # Before the counts, not after them: an agent composing "where
+            # do we stand" reads this block top-down, and 22 outstanding
+            # requirements mean something different when they are not
+            # yours.
+            "annex_i": _obligation(s),
             "total": len(reqs),
             "by_status": _count_by(reqs, "status"),
             "by_applicability": _count_by(reqs, "applicability"),

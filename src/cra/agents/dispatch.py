@@ -105,6 +105,10 @@ _FREE: set[str] = {
     "get_recent_activity",
     "get_applicable_csirt",
     "classify_product",
+    # Which CRA role this party plays decides which obligations apply at
+    # all, so it belongs with classification on the free side: finding
+    # out that Annex I is not yours must not be behind a paywall.
+    "set_economic_operator_role",
     "record_sbom",
     "add_member",
     "remove_member",

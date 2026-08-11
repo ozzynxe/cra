@@ -39,7 +39,7 @@ from cra.schemas.enums import (
 from cra.server import audit, store_backend
 from cra.server.artifact_limits import check_artifact_size, check_product_total
 from cra.server.errors import InvalidState, NotFound
-from cra.server.scoping import _load, _member
+from cra.server.scoping import _load, _member, obligation_view as _obligation_view
 
 _CATALOGUE = {r.id: r for r in requirements()}
 
@@ -319,6 +319,11 @@ def list_requirements(
             _view(i, verbose=verbose, currency=currency.get(i.req_id)) for i in items
         ],
         "gaps_total": len(all_gaps),
+        # Whose obligation this list is. Annex I binds manufacturers; for
+        # anyone else these are tracked rather than owed, and saying so
+        # here is the difference between a working aid and an invented
+        # duty. Derived from the role every time — see obligation_view.
+        "annex_i": _obligation_view(state),
         "next": (
             f"{len(all_gaps)} requirement(s) would leave a hole in the "
             "technical file. list_requirements(filter='gaps') shows them."

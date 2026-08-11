@@ -117,6 +117,7 @@ _DISCLAIMER = (
 
 _PUBLIC_NAV = (
     '      <a href="/#covers">What it covers</a>\n'
+    '      <a href="/docs">Setup</a>\n'
     '      <a href="/pricing">Pricing</a>\n'
     '      <a href="/billing">Billing</a>\n'
     '      <a class="btn cta small" href="/#access">Start free</a>'
@@ -124,6 +125,7 @@ _PUBLIC_NAV = (
 
 _PUBLIC_FOOTER = (
     '      <a href="/">Home</a>\n'
+    '      <a href="/docs">Setup</a>\n'
     '      <a href="/coverage">Coverage</a>\n'
     '      <a href="/terms.html">Terms</a>\n'
     '      <a href="/privacy.html">Privacy</a>\n'

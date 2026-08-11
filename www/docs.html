@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup — Skarp CRA</title>
+<meta name="description" content="How to connect Skarp CRA to Claude or another MCP client, and what to ask it first.">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <a class="brand" href="/">Skarp CRA</a>
+    <nav>
+      <a href="/#covers">What it covers</a>
+      <a href="/docs">Setup</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/app">Sign in</a>
+      <a class="btn cta small" href="/#access">Start free</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+<div class="prose">
+
+<h1>Setup</h1>
+<p class="updated">Skarp CRA is an MCP server. You talk to it through Claude or
+another MCP client — there is no app to learn.</p>
+
+<h2>Connect it</h2>
+
+<p>Add it as a connector, using this URL:</p>
+
+<pre><code>https://cra.skarp.app/mcp/me/mcp</code></pre>
+
+<p>In Claude: <strong>Settings → Connectors → Add custom connector</strong>,
+paste the URL, and click connect. You will be asked for your email address and
+sent a six-digit code. Enter the code and you are done — there is no password
+and no token to copy.</p>
+
+<p>A code rather than a link, deliberately: a link opens in whichever browser
+your mail is in, which is often a phone, while the connection is waiting in a
+tab on your laptop.</p>
+
+<p>Other MCP clients work the same way if they support remote servers over
+Streamable HTTP with OAuth. If yours needs a bearer token instead, get one from
+<a href="/access">/access</a> — it is shown once.</p>
+
+<h2>Ask it these three things first</h2>
+
+<p>Nothing needs setting up before you start. Type in your own words; these are
+what the answers look like.</p>
+
+<h3>1. "Does the Cyber Resilience Act apply to what we ship?"</h3>
+<p>It walks you through Annex III and Annex IV with you and records the answer
+with your reasoning. It will not guess from your product's name — the class
+decides whether you need a notified body, and a wrong answer there is the
+expensive kind.</p>
+
+<h3>2. "We ship a Java service — are any of our dependencies known to be exploited?"</h3>
+<p>Give it your SBOM and it checks every component against OSV, CISA's Known
+Exploited Vulnerabilities catalogue, and EPSS, then re-checks nightly. Matches
+arrive as questions to answer, not as findings about your product.</p>
+
+<h3>3. "We just found out a flaw in our product is being exploited. What now?"</h3>
+<p>This is the one with a clock. From 11 September 2026 an actively exploited
+vulnerability must be notified within <strong>24 hours</strong>. It works out
+which national CSIRT, starts the 24-hour, 72-hour and 14-day deadlines from when
+you became <em>aware</em> rather than when you typed it in, and drafts the ENISA
+report for you to file.</p>
+
+<h2>What it will not do</h2>
+
+<p>It records the determinations you make and shows you what is missing. It does
+not make them for you: it will not decide your product class, judge whether a
+justification is good enough, or tell you that you are compliant. It cannot
+certify conformity, and where your class requires a notified body only that body
+can assess it.</p>
+
+<h2>Free, and what costs money</h2>
+
+<p>One product is free, with unlimited colleagues: classification, the Article
+13(2) risk assessment, the Annex I and Annex II checklists with evidence, daily
+scanning, the Article 14 reporting clocks, and the Annex VII gap report. No
+card.</p>
+
+<p>Paid adds four more products and the last step — freezing the technical file,
+drawing up the Declaration of Conformity, signing it off, and recording a
+product as placed on the market. Almost nobody needs that before December 2027.
+See <a href="/pricing">pricing</a>.</p>
+
+<p>You can take everything with you at any time, on any plan: ask it to export
+the product, or download the full archive from <a href="/app">the console</a>.</p>
+
+<h2>Two dates</h2>
+
+<ul>
+  <li><strong>11 September 2026</strong> — reporting obligations start. This is
+  the one with a 24-hour clock.</li>
+  <li><strong>11 December 2027</strong> — the rest of the regulation applies.</li>
+</ul>
+
+<h2>Something wrong?</h2>
+
+<p>Email <a href="mailto:cra@skarp.app">cra@skarp.app</a>. If the tool told you
+something that turns out to be inaccurate, that is the message we most want to
+receive.</p>
+
+</div>
+</main>
+<footer class="sitefoot">
+  <div class="wrap">
+    <p>Operated from the EU. This site sets no cookies, runs no analytics, and
+    loads nothing from another host. Skarp CRA is a working aid and cannot
+    certify conformity or replace a notified body.</p>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/docs">Setup</a>
+      <a href="/coverage">Coverage</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="mailto:cra@skarp.app">cra@skarp.app</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

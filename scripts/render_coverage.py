@@ -134,7 +134,7 @@ entries are the catalogue this server itself runs on, reconciled on
 {esc(prov['verified_at'])}. Both against CELEX {esc(prov['celex'])}. Read them
 beside <a href="{esc(prov['url'])}">the authoritative text</a>, not instead of
 it — and note that Article 7(4) delegated acts can amend the annexes.</p>
-<p><a class="btn cta" href="/#access">Connect your agent</a> <a class="btn" href="/pricing">Pricing</a></p>
+<p><a class="btn cta" href="/#access">Connect your agent</a> <a class="btn" href="/docs">Setup</a> <a class="btn" href="/pricing">Pricing</a></p>
 </div>"""
     parts.append(webui.section(intro))
 

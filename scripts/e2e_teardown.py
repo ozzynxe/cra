@@ -15,6 +15,16 @@ works from a tag rather than an id, so the blast radius is the accounts one run
 created. There is no "all e2e accounts" mode: a run's worth of damage is
 recoverable, and a sweep across every run is not.
 
+The tag is matched as a whole segment — `+e2efree-<tag>@` — rather than as a
+substring. It was a substring, and `0810` is a substring of `0810j10`, so a
+short tag quietly swept every longer run beginning with it. `--tag 08` would
+have taken every August run, which is the mode the paragraph above says does
+not exist.
+
+`--legacy-untagged` reaches the two accounts created before tagging existed,
+which no tag could match because every prefix ends in a hyphen. A separate flag
+rather than a looser matcher: widening the prefixes would widen them forever.
+
 ## Two things worth understanding before running it
 
 **`audit_events` and `attestations` carry no foreign key to `products`, and that
@@ -53,27 +63,61 @@ from cra.db import (  # noqa: E402
     session_scope,
 )
 
-# What marks an address as disposable. A tag alone is not enough — an operator
-# passing `--tag 2026` should not be able to reach an account that merely has
+# The address shapes `e2e_accounts.py` generates. A tag alone is not enough —
+# an operator passing `--tag 2026` should not reach an account that merely has
 # that string in it.
-MARKERS = ("+e2efree-", "+e2epaid-", "+e2e-")
+_PREFIXES = ("+e2efree-", "+e2epaid-", "+e2e-")
+
+# Before the tagging convention existed there were two accounts with no tag at
+# all: `<base>+e2efree@` and `<base>+e2epaid@`. No value of `--tag` can reach
+# them, because every prefix above ends in a hyphen — so the very first run's
+# data was unreachable by the script written to remove it. `--legacy-untagged`
+# is their one door, deliberately a separate flag rather than a looser matcher:
+# widening the prefixes would widen them for every future run too.
+_UNTAGGED = ("+e2efree@", "+e2epaid@", "+e2e@")
+
+
+def _matches(email: str, tag: str, untagged: bool) -> bool:
+    """Whether this address belongs to the run being torn down.
+
+    A *segment* match, not a substring one. `args.tag in email` was the test,
+    and `0810` is a substring of `0810j10` — so a short tag silently swept
+    every longer run that started with it, which is the "all e2e accounts" mode
+    the module docstring says does not exist. `--tag 08` would have taken
+    every August run.
+    """
+    email = email or ""
+    if untagged:
+        return any(email.endswith(u) or f"{u.rstrip('@')}@" in email for u in _UNTAGGED)
+    return any(f"{p}{tag}@" in email for p in _PREFIXES)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--tag", required=True,
+    ap.add_argument("--tag", default="",
                     help="the tag e2e_accounts.py was run with")
+    ap.add_argument("--legacy-untagged", action="store_true",
+                    help="the two pre-tagging accounts instead of a tag")
     ap.add_argument("--apply", action="store_true",
                     help="actually delete; without it nothing changes")
     args = ap.parse_args()
 
+    if bool(args.tag) == bool(args.legacy_untagged):
+        return print(
+            "  Pass exactly one of --tag <tag> or --legacy-untagged. Naming "
+            "the run is what bounds the damage; there is no mode that removes "
+            "every e2e account at once."
+        ) or 2
+
+    what = "the untagged pre-tagging accounts" if args.legacy_untagged else f"tag {args.tag!r}"
+
     with session_scope() as s:
         users = [
             u for u in s.execute(select(User)).scalars().all()
-            if any(m in (u.email or "") for m in MARKERS) and args.tag in (u.email or "")
+            if _matches(u.email, args.tag, args.legacy_untagged)
         ]
         if not users:
-            print(f"  No e2e accounts carry the tag {args.tag!r}. Nothing to do.")
+            print(f"  No e2e accounts match {what}. Nothing to do.")
             return 0
 
         uids = [u.id for u in users]
@@ -97,7 +141,7 @@ def main() -> int:
             if pids else 0
         )
 
-        print(f"\n  tag {args.tag}: {len(users)} account(s), {len(products)} product(s)\n")
+        print(f"\n  {what}: {len(users)} account(s), {len(products)} product(s)\n")
         for u in users:
             print(f"    {u.email}  tier={u.tier}")
         for p in products:

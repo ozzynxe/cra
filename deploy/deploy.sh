@@ -136,8 +136,19 @@ rsync -az --delete $DRY_RUN \
 
 PREV_IMAGE=$($SSH "docker inspect --format '{{.Image}}' cra 2>/dev/null" || true)
 PREV_IMAGE=$(printf '%s' "$PREV_IMAGE" | tr -d '\r\n')
-[ -n "$PREV_IMAGE" ] && say "Current image: ${PREV_IMAGE#sha256:}" || \
+if [ -n "$PREV_IMAGE" ]; then
+  # **Tagged, not just remembered.** An id alone is not enough: `up --build`
+  # moves `cra-cra:latest` to the new image, the old one becomes dangling, and
+  # it is collected — so by the time a rollback needs it, `docker tag` fails
+  # with "No such image". That is exactly what happened on the first real
+  # failure, and the rollback could not have worked however it was written.
+  # A tag is a reference, and a referenced image is not reclaimed.
+  $SSH "docker tag ${PREV_IMAGE} cra-cra:rollback" || \
+    printf '\033[33mCould not tag the current image; rollback will not be available.\033[0m\n'
+  say "Current image: ${PREV_IMAGE#sha256:} (tagged cra-cra:rollback)"
+else
   printf '\033[33mNo container running — nothing to roll back to if this fails.\033[0m\n'
+fi
 
 rollback() {
   printf '\033[31m%s\033[0m\n' "$*" >&2
@@ -147,24 +158,43 @@ rollback() {
   fi
   printf '\033[33mRolling back to %s\033[0m\n' "${PREV_IMAGE#sha256:}" >&2
   # Re-point the tag compose builds to, then recreate **without building**.
-  #
-  # The first version of this tagged the old image as `cra-cra:rollback` and ran
-  # `docker compose up -d --force-recreate`, which would have recreated from
-  # `cra-cra` — the new, broken image — and reported success. A rollback that
-  # does not roll back is worse than none, because the failure is silent and it
-  # only ever runs when something is already wrong.
-  #
   # `--no-build` is what makes the retag stick: without it compose rebuilds from
   # source and puts the broken bits straight back.
-  $SSH "cd ${REMOTE} && docker tag ${PREV_IMAGE} cra-cra:latest && \
+  $SSH "cd ${REMOTE} && docker tag cra-cra:rollback cra-cra:latest && \
         docker compose up -d --force-recreate --no-build cra" >&2 || true
-  code=$($SSH "docker exec cra python -c \"import httpx; print(httpx.get('http://127.0.0.1:8000/health', timeout=5).status_code)\"" 2>/dev/null || echo "dead")
-  if [ "$code" = "200" ]; then
-    printf '\033[33mRolled back and healthy. The deploy did NOT ship.\033[0m\n' >&2
+
+  # **Verify the image, not just the health.** The previous version checked
+  # /health after the recreate and called a 200 a successful rollback. When the
+  # retag failed — which it did, silently, because the old image had been
+  # collected — the still-running new container answered 200 a second later and
+  # the script reported "Rolled back. The deploy did NOT ship" about a deploy
+  # that had shipped. A rollback that cannot fail loudly is worse than none:
+  # this one only runs when something is already wrong, and it is believed.
+  now=$($SSH "docker inspect --format '{{.Image}}' cra 2>/dev/null" | tr -d '\r\n')
+  code=$(_health || echo "dead")
+  if [ "$now" = "$PREV_IMAGE" ] && [ "$code" = "200" ]; then
+    printf '\033[33mRolled back to %s and healthy. The deploy did NOT ship.\033[0m\n' \
+      "${PREV_IMAGE#sha256:}" >&2
+  elif [ "$now" = "$PREV_IMAGE" ]; then
+    printf '\033[31mRolled back, but it is not answering (%s). The service is down.\033[0m\n' "$code" >&2
   else
-    printf '\033[31mRollback did not come up healthy (%s). The service is down — investigate now.\033[0m\n' "$code" >&2
+    printf '\033[31mROLLBACK FAILED. Running %s, wanted %s. The failed build may still be serving — investigate now.\033[0m\n' \
+      "${now#sha256:}" "${PREV_IMAGE#sha256:}" >&2
   fi
   exit 1
+}
+
+_health() {
+  # Retried, because a recreated container needs a moment: measured at ~2s on
+  # this host, and the single immediate probe this used to do reported a
+  # healthy deploy as a failure and triggered a rollback nobody needed.
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    c=$($SSH "docker exec cra python -c \"import httpx; print(httpx.get('http://127.0.0.1:8000/health', timeout=3).status_code)\"" 2>/dev/null | tr -d '\r\n')
+    [ "$c" = "200" ] && { echo 200; return 0; }
+    sleep 2
+  done
+  echo "${c:-dead}"
+  return 1
 }
 
 # ---- 3. migrate, then swap ---------------------------------------------------
@@ -211,8 +241,8 @@ $SSH "docker exec cra alembic check" || \
 # auth middleware is not in the request path, which is worse than being down.
 
 say "Smoke test"
-$SSH "docker exec cra python -c \"import httpx; r=httpx.get('http://127.0.0.1:8000/health', timeout=5); r.raise_for_status(); print(' container /health:', r.text.strip())\"" || \
-  rollback "The new container does not answer /health."
+[ "$(_health)" = "200" ] || rollback "The new container does not answer /health after 30s."
+echo " container /health: ok"
 
 if [ -n "$DOMAIN" ]; then
   code=$(curl -s -o /dev/null -w '%{http_code}' "https://${DOMAIN}/health" || true)

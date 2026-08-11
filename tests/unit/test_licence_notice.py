@@ -24,6 +24,9 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 HOLDER = "Linclaw Consulting AB"
+# The registration number, not the name, is what identifies the company: two
+# Swedish companies can share a name and cannot share this.
+ORG_NR = "559074-9239"
 
 
 def test_the_package_carries_a_copyright_notice():
@@ -81,3 +84,29 @@ def test_the_public_pages_name_the_same_party():
         html = (ROOT / "www" / page).read_text()
         assert HOLDER in html, f"{page} does not name the operator"
         assert needle in html
+
+
+def test_the_controller_is_identified_rather_than_offered_on_request():
+    """GDPR Art 13(1)(a) wants the controller's identity and contact details
+    given, not available on application. The page used to name the product and
+    offer the legal entity to anyone who asked, which is the wrong way round:
+    the people least likely to ask are the ones the article is written for.
+    """
+    html = (ROOT / "www" / "privacy.html").read_text()
+    assert HOLDER in html
+    assert ORG_NR in html
+    assert "Mariestad" in html
+    assert "Sweden" in html
+    # The old escape hatch. Leaving it beside a published address would read as
+    # though something were still being withheld.
+    assert "ask and we will provide it" not in html
+
+
+def test_the_terms_name_the_same_company_as_the_licence():
+    """A counterparty reading the terms and a contributor reading the CLA must
+    end up at one legal person. Three files carried a party name and they were
+    edited at different times, which is how they drift."""
+    for path in ("www/terms.html", "CLA.md"):
+        text = (ROOT / path).read_text()
+        assert HOLDER in text, path
+        assert ORG_NR in text, path

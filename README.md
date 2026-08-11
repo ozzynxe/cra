@@ -17,7 +17,7 @@ regulation actually requires them.
 
 ---
 
-### → Just want to use it? **[cra.skarp.app](https://cra.skarp.app)**
+## Hosted service
 
 Nothing to install. Add it to Claude, Codex or another MCP client as a connector:
 
@@ -41,7 +41,7 @@ send a patch. Everything below is for that.
 
 ---
 
-## Why the dates matter
+## Compliance timeline
 
 | Date | What binds |
 |---|---|
@@ -72,7 +72,7 @@ II(5) and II(6) ask for. Publishing advisories for fixed vulnerabilities —
 II(4) — is not built yet and is tracked as an open issue rather than implied by
 the list above.
 
-## Running it yourself
+## Self-hosting
 
 The hosted service is [cra.skarp.app](https://cra.skarp.app) — see the top of
 this file. To run your own:
@@ -89,9 +89,9 @@ deployment needs.
 
 The MCP endpoint is `POST /mcp/me/mcp` with `Authorization: Bearer cra_…`, or
 `/mcp/{product_id}/mcp` for a token scoped to one product. Configure
-`DATABASE_URL` for anything but local development — see "Known limits".
+`DATABASE_URL` for anything but local development — see [Limitations](#limitations).
 
-## What it does
+## Tools
 
 47 tools. Grouped by the obligation they serve:
 
@@ -123,12 +123,12 @@ The regulation itself is versioned data in
 II, the Annex III/IV classes, the Annex VII slots and the Annex V declaration
 fields — each entry carrying its own provenance.
 
-## How it thinks
+## Design decisions
 
 Most of the design exists to prevent one failure: **a technical file that looks
 considered and is not.** These are the load-bearing decisions.
 
-### Nothing is ever automatically ruled out
+### Requirement applicability
 
 `confirm_risk_assessment` marks the requirements that accepted risks name as
 `applicable`, and leaves everything else `undetermined` — which still reads as
@@ -140,7 +140,7 @@ Annex I Part I is the exact failure worth designing against. Ruling a
 requirement out stays a deliberate act with reasoning attached, and a
 requirement named by a standing accepted risk cannot be ruled out at all.
 
-### The agent drafts; a person decides
+### Risk assessment workflow
 
 The model invoking this connector is already sitting in the repository with the
 code, the dependency manifest and the deployment topology — the material a risk
@@ -153,7 +153,7 @@ mandatory rationale — moves a risk to accepted, and only accepted risks touch
 the checklist. There is deliberately no path that accepts and applies in one
 call.
 
-### The clocks anchor on awareness, not on when you called the tool
+### Reporting clock anchoring
 
 Article 14 counts from when the manufacturer became *aware*, so
 `record_vulnerability` and `update_vulnerability` both take `became_aware_at`
@@ -171,7 +171,7 @@ has usually not happened when the incident is recorded. That obligation is
 materialised later, when the anchor arrives. Showing a fabricated due date
 would be worse than showing none.
 
-### A feed match is a candidate, never a record
+### Advisory matching
 
 `advisories.py` is the only code here that can *produce* awareness rather than
 record it — and awareness starts a 24-hour clock, on the strength of a
@@ -190,11 +190,11 @@ result; components with no version or an unsupported ecosystem are counted and
 named; and absence from CISA KEV is never rendered as "not exploited", because
 KEV is high-precision and lags real exploitation.
 
-#### "So is it safer not to scan?"
+#### Scanning and legal awareness
 
-It is the obvious question — Article 14's clocks run from awareness, and
-scanning produces awareness, so wilful blindness looks like a strategy. It is
-not, on three separate grounds.
+A reasonable objection: Article 14's clocks run from awareness, scanning
+produces awareness, so not looking can seem like the safer option. It is not,
+on three separate grounds.
 
 **Not looking is itself a breach.** Article 13(5): "manufacturers **shall
 exercise due diligence** when integrating components sourced from third parties
@@ -221,7 +221,7 @@ scanned and ruled a candidate out with a VEX justification has evidence of
 diligence dated before the incident; the one who never looked has no answer to
 "when did you know?".
 
-### A prediction orders the queue and decides nothing
+### EPSS scoring
 
 EPSS scores how likely a CVE is to be exploited in the next 30 days — close
 enough to Article 3(41)'s *potential to be effectively used* to be genuinely
@@ -236,7 +236,7 @@ VEX justification is a statement about your product and stays required.
 Both feeds are mirrored whole rather than queried per-CVE. Asking a scoring API
 about a customer's CVEs would disclose exactly what the mirror exists to avoid.
 
-### Derived, never stored
+### Derived state
 
 Deadline status, risk-assessment staleness and evidence currency are all
 computed on read. Persisting an `overdue` boolean flipped by a cron would let a
@@ -250,13 +250,13 @@ Three verdicts, and the distinction between the last two carries weight —
 those stale would have turned every requirement in every account into a gap on
 deploy, on the strength of something nobody had checked.
 
-### Evidence is hashed artefacts, never free text
+### Evidence storage
 
 `attach_evidence` demands the artefact itself plus a `source_ref` — a git SHA,
 a CI run URL, a tool and version — and stores it by value with a SHA-256. A
 link evidences nothing in ten years, which is how long the file is retained.
 
-### The audit trail is the deliverable
+### Audit trail
 
 Under the CRA the technical file is retained ten years and the trail is what
 evidences every change to it. So a failed audit write **fails the tool call**
@@ -264,7 +264,7 @@ evidences every change to it. So a failed audit write **fails the tool call**
 one transaction. That is why the state blob lives in `products.state` JSONB
 behind `SELECT … FOR UPDATE` rather than in a document store.
 
-### Unknown is not the same as clear
+### Reporting unknown results
 
 When deadlines cannot be read — no database configured — `get_compliance_status`
 returns `open_obligations: null` with an explicit `unavailable` note, never an
@@ -275,7 +275,7 @@ The same rule governs the paywall. A refusal names what the tool would have
 done and says the plan does not cover it; a free account that cannot reach the
 reporting tools has *not* been told its product is fine.
 
-## Provenance, and why the anchors matter
+## Regulation data and provenance
 
 The catalogue was reconciled against the published text on **2026-08-06**
 (CELEX 32024R2847, via the Publications Office).
@@ -297,7 +297,7 @@ re-checked, and its caveat is never null in either state. Verification means
 the anchors exist and the paraphrases are faithful. It does not make them the
 text of the law, and Article 7(4) delegated acts can amend the annexes.
 
-## Known limits
+## Limitations
 
 - **Without a database the file backend is used, and it is not transactional.**
   It cannot commit a state write and its audit row together, so a crash between

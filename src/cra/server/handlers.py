@@ -509,17 +509,42 @@ def _support_period_view(s) -> dict:
     `state` is deliberately a word and not a boolean. "Is it supported" has
     three answers here — not recorded, inside, ended — and the first is not a
     kind of "no".
+
+    `why_it_matters` is addressed to whoever the duty is actually on. It read
+    "Article 13(8) requires a support period" flatly, to an importer as much
+    as to a manufacturer, and 13(8) requires nothing of an importer — the
+    period is the manufacturer's determination, and an importer recording one
+    is noting what somebody else committed to. Issue #52, the half of it that
+    survived the first pass because it was looking for seeded checklists
+    rather than for prose.
     """
+    # Local, for the cycle reason the other scoping imports here carry.
+    from cra.server.scoping import _role_of, binds_as_manufacturer
+
     sp = s.support_period
+    binds = binds_as_manufacturer(s)
     if not sp.end:
         return {
             "state": "not_recorded",
             "why_it_matters": (
-                "Article 13(8) requires a support period of at least five "
-                "years, and Annex VII(4) requires the reasoning behind it. "
-                "Neither is recorded, so the technical file cannot report that "
-                "section as met. set_support_period(end=..., rationale=...)."
-            ),
+                (
+                    "Article 13(8) requires a support period of at least five "
+                    "years, and Annex VII(4) requires the reasoning behind it. "
+                    "Neither is recorded, so the technical file cannot report "
+                    "that section as met."
+                )
+                if binds
+                else (
+                    "Article 13(8) puts the support period on the "
+                    f"manufacturer, and this product is recorded as {_role_of(s)}. "
+                    "Determining one is not your obligation and nothing here "
+                    "says it is; what governs is whatever period the "
+                    "manufacturer set. Recording it is still worth doing — it "
+                    "is the date after which nobody is obliged to fix "
+                    "anything in what you supply."
+                )
+            )
+            + " set_support_period(end=..., rationale=...).",
         }
 
     now = datetime.now(timezone.utc)

@@ -25,7 +25,8 @@ import pathlib
 
 from cra.agents import dispatch
 
-_SRC = pathlib.Path(inspect.getfile(dispatch)).parent.parent / "server"
+_PKG = pathlib.Path(inspect.getfile(dispatch)).parent.parent
+_SRC = _PKG / "server"
 
 
 def test_no_handler_claims_a_human_performed_the_action():
@@ -78,3 +79,47 @@ def test_an_authored_risk_still_records_which_model_wrote_it():
     src = (_SRC / "risk.py").read_text()
     assert 'actor_kind="model" if model else "agent"' in src
     assert "actor_model=model" in src
+
+
+def test_no_column_defaults_a_person_into_the_record():
+    """The half this file missed the first time.
+
+    The sweep above reads `server/*.py`, so it never saw `db/models.py`, where
+    *both* `actor_kind` columns carried `server_default="human"`. On
+    `audit_events` that was latent — `record()` passes `agent` and everything
+    goes through `record()`. On `evidence` it was live: no code has ever
+    assigned that column, so every row in production said a human attached the
+    artefact, including the six kinds the server generates itself.
+
+    A sweep that reads one directory is a sweep with a blind spot the width of
+    the others, which is the same lesson as the eleven handlers.
+    """
+    offenders = []
+    for path in sorted(_PKG.rglob("*.py")):
+        if path.name == "audit.py":  # defines the parameter; see above
+            continue
+        for i, line in enumerate(path.read_text().splitlines(), 1):
+            # Any `human` default at all, not just one on a line mentioning
+            # `actor_kind` — the column is written across three lines now, so
+            # a check needing both on one line would have missed the thing it
+            # was added for.
+            if 'default="human"' in line or "default='human'" in line:
+                offenders.append(f"{path.relative_to(_PKG)}:{i}")
+
+    assert not offenders, (
+        "a column default writes `human` into rows nothing observed a person "
+        f"creating: {offenders}. Default to `agent`."
+    )
+
+
+def test_evidence_rows_are_attributed_to_an_agent_by_default():
+    """Reading the model rather than the file, so a refactor cannot pass this
+    by moving the literal somewhere the text sweep does not look."""
+    from cra.db.models import AuditEvent, Evidence
+
+    for model in (Evidence, AuditEvent):
+        col = model.__table__.c.actor_kind
+        assert col.server_default.arg == "agent", (
+            f"{model.__name__}.actor_kind still defaults to "
+            f"{col.server_default.arg!r} in the database"
+        )

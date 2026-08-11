@@ -247,7 +247,16 @@ class Evidence(Base):
     added_by_user_id: Mapped[Optional[str]] = mapped_column(
         UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    actor_kind: Mapped[str] = mapped_column(String(16), nullable=False, server_default="human")
+    # `agent`, not `human` — issue #46's second column, and the one the first
+    # sweep missed because it read `server/*.py` and this lives in `db/`.
+    # Nothing has ever assigned this: all eight `Evidence(...)` sites leave it
+    # to the default, and six of them are artefacts the server generates
+    # itself. So a `human` here was never anybody's claim, it was the schema's,
+    # made about every row on no evidence — the same false assertion the audit
+    # trail was carrying, in the table that holds what a technical file cites.
+    actor_kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="agent", server_default="agent"
+    )
     superseded_by: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), nullable=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -427,7 +436,13 @@ class AuditEvent(Base):
     op: Mapped[str] = mapped_column(String(48), nullable=False)
 
     accountable_user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), nullable=True)
-    actor_kind: Mapped[str] = mapped_column(String(16), nullable=False, server_default="human")
+    # Matches `audit.record`'s Python default. They disagreed, which meant the
+    # schema still said `human` for anything that ever reached this table
+    # without going through `record()` — and the whole point of #46 is that
+    # nothing here can observe a person.
+    actor_kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="agent", server_default="agent"
+    )
     actor_model: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     before_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)

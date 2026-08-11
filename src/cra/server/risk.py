@@ -69,7 +69,7 @@ from cra.schemas.enums import (
 )
 from cra.server import audit, entitlements, store_backend
 from cra.server.errors import InvalidState, NotFound
-from cra.server.scoping import _load, _member
+from cra.server.scoping import _load, _member, _role_of, binds_as_manufacturer
 
 _CATALOGUE = {r.id: r for r in requirements()}
 _PART_I = tuple(r for r in requirements() if r.part == "part_i")
@@ -345,13 +345,29 @@ def _risk_view(r: RiskItem, *, verbose: bool = False) -> dict:
 def _assessment_view(state, *, verbose: bool = False) -> dict:
     ra = state.risk_assessment
     if ra is None:
+        # Addressed to whoever the duty is on. 13(2) is the manufacturer's, and
+        # this told an importer that "every applicability decision rests on
+        # nothing" — true of a manufacturer's file and an overstatement of
+        # somebody else's tracking. The other half of #52.
         return {
             "present": False,
             "why_it_matters": (
-                "Annex I Part I requirements apply on the basis of the Article "
-                "13(2) risk assessment, and Annex VII(3) requires it in the "
-                "technical file. Without one, every applicability decision "
-                "rests on nothing."
+                (
+                    "Annex I Part I requirements apply on the basis of the "
+                    "Article 13(2) risk assessment, and Annex VII(3) requires "
+                    "it in the technical file. Without one, every "
+                    "applicability decision rests on nothing."
+                )
+                if binds_as_manufacturer(state)
+                else (
+                    "Article 13(2) puts the risk assessment on the "
+                    f"manufacturer, and this product is recorded as {_role_of(state)}. "
+                    "One here is your own analysis, not the statutory "
+                    "assessment Annex VII(3) means. It is still what decides "
+                    "which requirements you would be tracking and why — and "
+                    "if you substantially modify the product, Article 21 "
+                    "makes you the manufacturer and makes it yours."
+                )
             ),
             "next": "start_risk_assessment(product_id)",
         }

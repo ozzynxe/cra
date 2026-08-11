@@ -90,6 +90,28 @@ def _member(state, actor_id: str, *, minimum: Role = Role.VIEWER):
     return info
 
 
+def binds_as_manufacturer(state) -> bool:
+    """Whether Article 13's duties are this party's own.
+
+    Split out of `obligation_view` because the question outgrew Annex I.
+    Article 13 puts the risk assessment (13(2)), the support period (13(8))
+    and the technical documentation on the manufacturer, and every one of
+    those has a status view that used to address whoever was reading as if
+    the duty were theirs. One predicate, so the three cannot drift into
+    disagreeing about who is bound.
+
+    `use_enum_values=True` on the state blob means this is a plain string once
+    loaded, and the enum member only when just assigned. Normalised rather
+    than compared twice.
+    """
+    role = getattr(state.economic_operator_role, "value", state.economic_operator_role)
+    return role == EconomicOperatorRole.MANUFACTURER.value
+
+
+def _role_of(state) -> str:
+    return getattr(state.economic_operator_role, "value", state.economic_operator_role)
+
+
 def obligation_view(state) -> dict:
     """Whether Annex I binds *this* party. Derived, never stored.
 
@@ -126,11 +148,8 @@ def obligation_view(state) -> dict:
     true: Annex I is not their obligation. The reason belongs in the rationale
     on the role, which is theirs to write.
     """
-    # `use_enum_values=True` on the state blob means this is a plain string
-    # once loaded, and the enum member only when just assigned. Normalised
-    # rather than compared twice.
-    role = getattr(state.economic_operator_role, "value", state.economic_operator_role)
-    binds = role == EconomicOperatorRole.MANUFACTURER.value
+    role = _role_of(state)
+    binds = binds_as_manufacturer(state)
     out = {
         "binds_you": bool(binds),
         "whose_obligation": "manufacturer",

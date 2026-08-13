@@ -19,7 +19,7 @@ regulation actually requires them.
 
 ## Hosted service
 
-Nothing to install. Add it to Claude, Codex or another MCP client as a connector:
+If you want to try it, there is a hosted service available. Nothing to install. Add it to Claude, Codex or another MCP client as a connector:
 
 ```
 https://cra.skarp.app/mcp/me/mcp
@@ -27,17 +27,8 @@ https://cra.skarp.app/mcp/me/mcp
 
 You are asked for an email address and sent a six-digit code — no password, no
 token to copy. **[Setup and the first three things to ask
-it](https://cra.skarp.app/docs)** · [what each tool does, against the obligation
-it serves](https://cra.skarp.app/coverage) · [pricing](https://cra.skarp.app/pricing)
+it](https://cra.skarp.app/docs)**.
 
-One product is free, with unlimited colleagues, and free covers the part with a
-deadline: classification, the Article 13(2) assessment, the Annex I and Annex II
-checklists with evidence, daily SBOM scanning, the Article 14 reporting clocks
-and the Annex VII gap report. You can export everything you have recorded at any
-time, on any plan.
-
-**This repository is the source of that service** — read it, self-host it, or
-send a patch. Everything below is for that.
 
 ---
 
